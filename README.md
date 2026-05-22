@@ -2,6 +2,8 @@
 
 Beak Control Plane is the Nuxt 4 admin and portal application for managing Beak products, subscribers, subscriptions, licenses, activations, usage, billing events, runtime flags, and entitlement data.
 
+<img width="1864" height="950" alt="image" src="https://github.com/user-attachments/assets/8ffde870-5410-4d7c-94d0-5580e69e6247" />
+
 The product model is split into two separate concepts:
 
 - `organization` is the workspace boundary for the control plane itself.
