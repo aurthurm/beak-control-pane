@@ -8,9 +8,9 @@ import {
   plansTable,
   productsTable,
   subscriptionsTable,
-  tenantsTable,
+  subscribersTable,
 } from '../../../db/schema'
-import { recomputeEntitlementForTenantProduct } from '../../../utils/entitlement-by-product'
+import { recomputeEntitlementForSubscriberProduct } from '../../../utils/entitlement-by-product'
 
 type StoredPayload = {
   modules?: Record<string, boolean>
@@ -29,13 +29,13 @@ type StoredPayload = {
 }
 
 export default defineEventHandler(async (event) => {
-  const tenantId = getRouterParam(event, 'tenant')
+  const subscriberId = getRouterParam(event, 'subscriber')
   const productId = getRouterParam(event, 'product')
 
-  if (!tenantId || !productId) {
+  if (!subscriberId || !productId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'tenant and product params are required',
+      statusMessage: 'subscriber and product params are required',
     })
   }
 
@@ -43,24 +43,24 @@ export default defineEventHandler(async (event) => {
   await bootstrapDatabase(client)
   const db = drizzle(client)
 
-  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId))
+  const [subscriber] = await db.select().from(subscribersTable).where(eq(subscribersTable.id, subscriberId))
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId))
 
-  if (!tenant || !product) {
+  if (!subscriber || !product) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Tenant or product not found',
+      statusMessage: 'Subscriber or product not found',
     })
   }
 
-  if (tenant.organizationId !== product.organizationId) {
+  if (subscriber.organizationId !== product.organizationId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant and product must belong to the same organization',
+      statusMessage: 'Subscriber and product must belong to the same organization',
     })
   }
 
-  const subs = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.tenantId, tenant.id))
+  const subs = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.subscriberId, subscriber.id))
 
   let subscriptionRow: (typeof subs)[0] | null = null
   let planRow: typeof plansTable.$inferSelect | null = null
@@ -77,18 +77,18 @@ export default defineEventHandler(async (event) => {
   if (!subscriptionRow || !planRow) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'No subscription for this tenant and product',
+      statusMessage: 'No subscription for this subscriber and product',
     })
   }
 
   let [entRow] = await db
     .select()
     .from(entitlementsTable)
-    .where(and(eq(entitlementsTable.tenantId, tenant.id), eq(entitlementsTable.productId, product.id)))
+    .where(and(eq(entitlementsTable.subscriberId, subscriber.id), eq(entitlementsTable.productId, product.id)))
     .limit(1)
 
   if (!entRow) {
-    const rec = await recomputeEntitlementForTenantProduct(db, tenant.id, product.id)
+    const rec = await recomputeEntitlementForSubscriberProduct(db, subscriber.id, product.id)
     if (!rec) {
       throw createError({
         statusCode: 409,
@@ -139,15 +139,15 @@ export default defineEventHandler(async (event) => {
     await db
       .select()
       .from(licensesTable)
-      .where(and(eq(licensesTable.tenantId, tenant.id), eq(licensesTable.productId, product.id)))
+      .where(and(eq(licensesTable.subscriberId, subscriber.id), eq(licensesTable.productId, product.id)))
   )[0]
 
   return {
-    tenant: {
-      id: tenant.id,
-      name: tenant.name,
-      status: tenant.status,
-      seats: tenant.seats,
+    subscriber: {
+      id: subscriber.id,
+      name: subscriber.name,
+      status: subscriber.status,
+      seats: subscriber.seats,
     },
     product: {
       id: product.id,

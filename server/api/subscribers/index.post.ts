@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
-import { tenantsTable } from '../../db/schema'
+import { subscribersTable } from '../../db/schema'
 import { slugifyKey } from '../../utils/products'
 import { getStaffOrganizationId } from '../../utils/organizations'
 import { requireStaffApiWhenEnforced } from '../../utils/auth-guards'
@@ -40,24 +40,24 @@ export default defineEventHandler(async (event) => {
   const organizationId = getStaffOrganizationId(event)
 
   let baseSlug = body.slug?.trim() ? slugifyKey(body.slug) : slugifyKey(name)
-  if (!baseSlug) baseSlug = 'tenant'
+  if (!baseSlug) baseSlug = 'subscriber'
 
   let slug = baseSlug
   let n = 0
   while (true) {
     const existing = await db
-      .select({ id: tenantsTable.id })
-      .from(tenantsTable)
-      .where(and(eq(tenantsTable.organizationId, organizationId), eq(tenantsTable.slug, slug)))
+      .select({ id: subscribersTable.id })
+      .from(subscribersTable)
+      .where(and(eq(subscribersTable.organizationId, organizationId), eq(subscribersTable.slug, slug)))
     if (!existing.length) break
     n += 1
     slug = `${baseSlug}-${n}`
   }
 
-  const id = `tenant_${randomUUID().replace(/-/g, '').slice(0, 12)}`
+  const id = `subscriber_${randomUUID().replace(/-/g, '').slice(0, 12)}`
   const now = new Date().toISOString()
 
-  await db.insert(tenantsTable).values({
+  await db.insert(subscribersTable).values({
     id,
     organizationId,
     slug,

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
-import { tenantsTable } from '../../db/schema'
+import { subscribersTable } from '../../db/schema'
 import { slugifyKey } from '../../utils/products'
 import { getStaffOrganizationId } from '../../utils/organizations'
 import { requireStaffApiWhenEnforced } from '../../utils/auth-guards'
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const id = getRouterParam(event, 'id')?.trim()
   if (!id) {
-    throw createError({ statusCode: 400, statusMessage: 'tenant id is required' })
+    throw createError({ statusCode: 400, statusMessage: 'subscriber id is required' })
   }
 
   const body = await readBody<Body>(event)
@@ -41,13 +41,13 @@ export default defineEventHandler(async (event) => {
 
   const [existing] = await db
     .select()
-    .from(tenantsTable)
-    .where(and(eq(tenantsTable.id, id), eq(tenantsTable.organizationId, organizationId)))
+    .from(subscribersTable)
+    .where(and(eq(subscribersTable.id, id), eq(subscribersTable.organizationId, organizationId)))
   if (!existing) {
-    throw createError({ statusCode: 404, statusMessage: 'Tenant not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Subscriber not found' })
   }
 
-  const patch: Partial<typeof tenantsTable.$inferInsert> = {}
+  const patch: Partial<typeof subscribersTable.$inferInsert> = {}
 
   if (body.slug !== undefined) {
     const next = slugifyKey(body.slug)
@@ -56,11 +56,11 @@ export default defineEventHandler(async (event) => {
     }
     if (next !== existing.slug) {
       const clash = await db
-        .select({ id: tenantsTable.id })
-        .from(tenantsTable)
-        .where(and(eq(tenantsTable.slug, next), eq(tenantsTable.organizationId, organizationId)))
+        .select({ id: subscribersTable.id })
+        .from(subscribersTable)
+        .where(and(eq(subscribersTable.slug, next), eq(subscribersTable.organizationId, organizationId)))
       if (clash.length && clash[0]!.id !== id) {
-        throw createError({ statusCode: 409, statusMessage: 'tenant code already in use' })
+        throw createError({ statusCode: 409, statusMessage: 'subscriber code already in use' })
       }
     }
     patch.slug = next
@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     return { ok: true, id }
   }
 
-  await db.update(tenantsTable).set(patch).where(eq(tenantsTable.id, id))
+  await db.update(subscribersTable).set(patch).where(eq(subscribersTable.id, id))
 
   return { ok: true, id }
 })

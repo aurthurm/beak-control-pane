@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
-import { activationsTable, licensesTable, productsTable, tenantsTable } from '../../db/schema'
+import { activationsTable, licensesTable, productsTable, subscribersTable } from '../../db/schema'
 import {
   activationCountsTowardCap,
   buildActivationBindingLabel,
@@ -31,8 +31,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const [license] = await db.select().from(licensesTable).where(eq(licensesTable.id, row.licenseId))
-  const [tenant] = license
-    ? await db.select().from(tenantsTable).where(eq(tenantsTable.id, license.tenantId))
+  const [subscriber] = license
+    ? await db.select().from(subscribersTable).where(eq(subscribersTable.id, license.subscriberId))
     : [undefined]
   const [product] = license
     ? await db.select().from(productsTable).where(eq(productsTable.id, license.productId))
@@ -110,7 +110,7 @@ export default defineEventHandler(async (event) => {
           mode: license.mode,
         }
       : null,
-    tenant: tenant ? { id: tenant.id, name: tenant.name } : null,
+    subscriber: subscriber ? { id: subscriber.id, name: subscriber.name } : null,
     product: product ? { id: product.id, name: product.name } : null,
     indicators: {
       stale,

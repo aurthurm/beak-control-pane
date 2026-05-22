@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const session = await getSessionFromEvent(event)
-  if (!session || session.user.platformRole !== 'customer') {
+  if (!session || session.user.platformRole !== 'subscriber') {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 

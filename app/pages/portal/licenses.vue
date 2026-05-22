@@ -29,7 +29,7 @@ const metrics = computed(() => {
 <template>
   <PortalShell
     title="Licenses"
-    subtitle="License keys, activation capacity, and expiry pressure for the active customer."
+    subtitle="License keys, activation capacity, and expiry pressure for the active subscriber."
     :summary="summary ?? null"
     :pending="pending"
     :error="error ? 'Unable to load portal data.' : null"
@@ -52,7 +52,7 @@ const metrics = computed(() => {
       <CardHeader>
         <CardTitle>License inventory</CardTitle>
         <CardDescription>
-          {{ rows.length }} licenses available in the active customer.
+          {{ rows.length }} licenses available in the active subscriber.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -64,7 +64,7 @@ const metrics = computed(() => {
                   {{ row.productName }}
                 </div>
                 <div class="text-sm text-muted-foreground">
-                  {{ row.tenantName }} · {{ row.mode }}
+                  {{ row.subscriberName }} · {{ row.mode }}
                 </div>
               </div>
               <Badge :variant="toneForStatus(row.status)">
@@ -102,7 +102,7 @@ const metrics = computed(() => {
             No licenses yet
           </div>
           <p class="mt-2 text-sm text-muted-foreground">
-            Licenses issued for this customer will show up here with activation usage and expiry windows.
+            Licenses issued for this subscriber will show up here with activation usage and expiry windows.
           </p>
         </div>
       </CardContent>

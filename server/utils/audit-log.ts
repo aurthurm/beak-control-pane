@@ -5,7 +5,7 @@ import { auditLogsTable } from '../db/schema'
 export async function insertAuditLog(
   db: LibSQLDatabase<any>,
   row: {
-    tenantId: string | null
+    subscriberId: string | null
     actor: string
     action: string
     resourceType: string
@@ -15,7 +15,7 @@ export async function insertAuditLog(
 ) {
   await db.insert(auditLogsTable).values({
     id: `aud_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
-    tenantId: row.tenantId,
+    subscriberId: row.subscriberId,
     actor: row.actor,
     action: row.action,
     resourceType: row.resourceType,

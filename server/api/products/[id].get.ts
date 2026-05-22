@@ -13,7 +13,7 @@ import {
   productLimitKeysTable,
   productsTable,
   subscriptionsTable,
-  tenantsTable,
+  subscribersTable,
 } from '../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
 import { activationCountsTowardCap } from '../../utils/activations'
@@ -24,7 +24,7 @@ import {
   isSubscriptionBillingActive,
   monthlyNormalizedMrr,
   productTypeLabel,
-  tenantIdsForProduct,
+  subscriberIdsForProduct,
 } from '../../utils/products'
 import { getStaffOrganizationId } from '../../utils/organizations'
 import { requireStaffApiWhenEnforced } from '../../utils/auth-guards'
@@ -79,9 +79,9 @@ export default defineEventHandler(async (event) => {
 
   const orgTenants = await db
     .select()
-    .from(tenantsTable)
-    .where(eq(tenantsTable.organizationId, organizationId))
-  const tenantIds = orgTenants.map((t) => t.id)
+    .from(subscribersTable)
+    .where(eq(subscribersTable.organizationId, organizationId))
+  const subscriberIds = orgTenants.map((t) => t.id)
 
   const plans = await db
     .select()
@@ -91,33 +91,33 @@ export default defineEventHandler(async (event) => {
   const planIdsForProduct = plans.map((p) => p.id)
 
   const subscriptions =
-    planIdsForProduct.length && tenantIds.length
+    planIdsForProduct.length && subscriberIds.length
       ? await db
           .select()
           .from(subscriptionsTable)
           .where(
             and(
               inArray(subscriptionsTable.planId, planIdsForProduct),
-              inArray(subscriptionsTable.tenantId, tenantIds),
+              inArray(subscriptionsTable.subscriberId, subscriberIds),
             ),
           )
       : []
 
   const entitlements =
-    tenantIds.length
+    subscriberIds.length
       ? await db
-          .select({ tenantId: entitlementsTable.tenantId, productId: entitlementsTable.productId })
+          .select({ subscriberId: entitlementsTable.subscriberId, productId: entitlementsTable.productId })
           .from(entitlementsTable)
-          .where(and(eq(entitlementsTable.productId, id), inArray(entitlementsTable.tenantId, tenantIds)))
+          .where(and(eq(entitlementsTable.productId, id), inArray(entitlementsTable.subscriberId, subscriberIds)))
       : []
 
   const licenses =
-    tenantIds.length
+    subscriberIds.length
       ? await db
           .select()
           .from(licensesTable)
           .where(
-            and(eq(licensesTable.productId, id), inArray(licensesTable.tenantId, tenantIds)),
+            and(eq(licensesTable.productId, id), inArray(licensesTable.subscriberId, subscriberIds)),
           )
       : []
 
@@ -161,12 +161,12 @@ export default defineEventHandler(async (event) => {
     : []
 
   const planIds = new Set(plans.map((p) => p.id))
-  const tenantSet = tenantIdsForProduct(
+  const tenantSet = subscriberIdsForProduct(
     id,
     planIds,
     subscriptions,
     entitlements,
-    licenses.map((l) => ({ tenantId: l.tenantId, productId: l.productId })),
+    licenses.map((l) => ({ subscriberId: l.subscriberId, productId: l.productId })),
   )
 
   const licenseIds = new Set(licenses.map((l) => l.id))
@@ -370,7 +370,7 @@ export default defineEventHandler(async (event) => {
       usageTrackingEnabled: product.usageTrackingEnabled,
       extraDetails: product.extraDetails,
       planCount: plans.length,
-      tenantCount: tenantSet.size,
+      subscriberCount: tenantSet.size,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     },

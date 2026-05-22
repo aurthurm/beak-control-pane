@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
     id: userId,
     email,
     passwordHash,
-    platformRole: 'customer',
+    platformRole: 'subscriber',
     createdAt: now,
     updatedAt: now,
   })

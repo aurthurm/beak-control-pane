@@ -13,7 +13,7 @@ import type {
 export type BillingProvider = {
   readonly name: string
 
-  createCustomer(input: { tenantId: string; email?: string; name?: string }): Promise<ProviderCustomer>
+  createCustomer(input: { subscriberId: string; email?: string; name?: string }): Promise<ProviderCustomer>
 
   createCheckoutSession(params: CheckoutSessionParams): Promise<{ url: string; sessionId: string }>
 

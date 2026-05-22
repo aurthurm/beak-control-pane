@@ -43,7 +43,7 @@ const user = computed(() => {
       ? 'Platform admin'
       : session.value.user.platformRole === 'support'
         ? 'Support agent'
-        : 'Customer member',
+        : 'Subscriber member',
     email: session.value.user.email,
     avatar: '',
   }
@@ -57,11 +57,11 @@ const platformNav = [
     items: [{ title: 'Dashboard', to: '/' }],
   },
   {
-    title: 'Customers',
-    to: '/customers',
+    title: 'Subscribers',
+    to: '/subscribers',
     icon: Users,
     items: [
-      { title: 'Customers', to: '/customers' },
+      { title: 'Subscribers', to: '/subscribers' },
       { title: 'Subscriptions', to: '/subscriptions' },
     ],
   },

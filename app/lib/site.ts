@@ -7,7 +7,7 @@ export const site = {
   navigation: [
     { label: 'Dashboard', href: '/' },
     { label: 'Products', href: '/products' },
-    { label: 'Customers', href: '/customers' },
+    { label: 'Subscribers', href: '/subscribers' },
     { label: 'Subscriptions', href: '/subscriptions' },
     { label: 'Licenses', href: '/licenses' },
     { label: 'Usage', href: '/usage' },

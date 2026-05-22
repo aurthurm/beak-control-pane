@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { billingEventsTable, plansTable, subscriptionsTable, tenantsTable } from '../../../db/schema'
+import { billingEventsTable, plansTable, subscriptionsTable, subscribersTable } from '../../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../../db/bootstrap'
 import { drizzle } from 'drizzle-orm/libsql'
 import { mapBillingEventDetail } from '../../../utils/billing-events-map'
@@ -27,14 +27,14 @@ export default defineEventHandler(async (event) => {
 
   const [tenantScoped] = await db
     .select()
-    .from(tenantsTable)
-    .where(and(eq(tenantsTable.id, row.tenantId), eq(tenantsTable.organizationId, organizationId)))
+    .from(subscribersTable)
+    .where(and(eq(subscribersTable.id, row.subscriberId), eq(subscribersTable.organizationId, organizationId)))
   if (!tenantScoped) {
     throw createError({ statusCode: 404, statusMessage: 'Billing event not found' })
   }
 
   const [tenantRows, subscriptionRows, planRows] = await Promise.all([
-    db.select().from(tenantsTable).where(eq(tenantsTable.organizationId, organizationId)),
+    db.select().from(subscribersTable).where(eq(subscribersTable.organizationId, organizationId)),
     db.select().from(subscriptionsTable),
     db.select().from(plansTable),
   ])
@@ -47,15 +47,15 @@ export default defineEventHandler(async (event) => {
     const sub = subscriptionRows.find((s) => s.id === subId)
     if (!sub) return subId
     const plan = planMap.get(sub.planId)
-    const tenant = tenantMap.get(sub.tenantId)
-    const bits = [tenant?.name, plan?.name].filter(Boolean)
+    const subscriber = tenantMap.get(sub.subscriberId)
+    const bits = [subscriber?.name, plan?.name].filter(Boolean)
     return bits.length ? bits.join(' · ') : subId
   }
 
   return {
     event: mapBillingEventDetail(
       row,
-      tenantMap.get(row.tenantId)?.name ?? row.tenantId,
+      tenantMap.get(row.subscriberId)?.name ?? row.subscriberId,
       subscriptionLabel(row.subscriptionId),
     ),
   }

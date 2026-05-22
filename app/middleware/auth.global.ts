@@ -27,7 +27,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     if (!authed) {
       return navigateTo('/portal/login')
     }
-    if (role !== 'customer') {
+    if (role !== 'subscriber') {
       return navigateTo('/')
     }
     return

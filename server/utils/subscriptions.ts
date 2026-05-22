@@ -188,7 +188,7 @@ export function subscriptionListItem(
   plan: PlanRow | undefined,
   productName: string,
   productId: string,
-  tenant: TenantRow | undefined,
+  subscriber: TenantRow | undefined,
 ) {
   const pricing = plan
     ? effectiveSubscriptionPricing(subscription, plan)
@@ -208,8 +208,8 @@ export function subscriptionListItem(
 
   return {
     id: subscription.id,
-    tenantId: subscription.tenantId,
-    tenantName: tenant?.name ?? subscription.tenantId,
+    subscriberId: subscription.subscriberId,
+    subscriberName: subscriber?.name ?? subscription.subscriberId,
     productId,
     productName,
     planId: subscription.planId,

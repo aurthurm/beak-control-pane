@@ -4,7 +4,7 @@ export async function migrateEnterpriseContractsTable(client: Client) {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS enterprise_contracts (
       id TEXT PRIMARY KEY,
-      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      subscriber_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'draft',
       starts_at TEXT NOT NULL,

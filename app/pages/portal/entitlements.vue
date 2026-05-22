@@ -29,7 +29,7 @@ const metrics = computed(() => {
 <template>
   <PortalShell
     title="Entitlements"
-    subtitle="A readable snapshot of modules and limits currently effective for the active customer."
+    subtitle="A readable snapshot of modules and limits currently effective for the active subscriber."
     :summary="summary ?? null"
     :pending="pending"
     :error="error ? 'Unable to load portal data.' : null"
@@ -52,7 +52,7 @@ const metrics = computed(() => {
       <CardHeader>
         <CardTitle>Effective entitlements</CardTitle>
         <CardDescription>
-          {{ rows.length }} entitlement snapshots are visible for the active customer.
+          {{ rows.length }} entitlement snapshots are visible for the active subscriber.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -64,7 +64,7 @@ const metrics = computed(() => {
                   {{ row.productName }}
                 </div>
                 <div class="text-sm text-muted-foreground">
-                  {{ row.tenantName }} · computed {{ row.computedAtLabel }}
+                  {{ row.subscriberName }} · computed {{ row.computedAtLabel }}
                 </div>
               </div>
               <Badge variant="outline">

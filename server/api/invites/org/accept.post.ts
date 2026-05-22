@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
     id: userId,
     email: targetEmail,
     passwordHash,
-    platformRole: 'customer',
+    platformRole: 'subscriber',
     createdAt: now,
     updatedAt: now,
   })

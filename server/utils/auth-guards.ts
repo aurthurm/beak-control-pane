@@ -31,7 +31,7 @@ export async function requirePlatformAdmin(event: H3Event): Promise<SessionUser>
   return session
 }
 
-export async function requireCustomerWithOrg(
+export async function requireSubscriberWithOrg(
   event: H3Event,
   organizationId: string,
 ): Promise<SessionUser> {
@@ -39,7 +39,7 @@ export async function requireCustomerWithOrg(
   if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
-  if (session.user.platformRole !== 'customer') {
+  if (session.user.platformRole !== 'subscriber') {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
   const ok = session.memberships.some((m) => m.organizationId === organizationId)

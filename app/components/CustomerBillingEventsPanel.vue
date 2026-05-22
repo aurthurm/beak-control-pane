@@ -18,7 +18,7 @@ import { formatCurrency, formatDate } from '~/lib/formatters'
 import { ExternalLink, FileSearch, RefreshCw, RotateCcw, Search } from 'lucide-vue-next'
 
 const props = defineProps<{
-  customerId: string
+  subscriberId: string
 }>()
 
 type BillingListResponse = {
@@ -26,8 +26,8 @@ type BillingListResponse = {
     id: string
     provider: string
     eventType: string
-    tenantId: string
-    tenantName: string
+    subscriberId: string
+    subscriberName: string
     subscriptionId: string | null
     subscriptionLabel: string | null
     status: string
@@ -55,7 +55,7 @@ const statusFilter = ref('all')
 const search = ref('')
 
 const queryParams = computed(() => ({
-  tenant: props.customerId,
+  subscriber: props.subscriberId,
   provider: providerFilter.value,
   eventType: typeFilter.value,
   status: statusFilter.value,
@@ -101,7 +101,7 @@ const statusVariant = (status: string) => {
 }
 
 const subscriptionPath = (subscriptionId: string) =>
-  `/customers/${encodeURIComponent(props.customerId)}/subscription/${encodeURIComponent(subscriptionId)}`
+  `/subscribers/${encodeURIComponent(props.subscriberId)}/subscription/${encodeURIComponent(subscriptionId)}`
 
 const openDetail = async (id: string) => {
   detailOpen.value = true
@@ -159,7 +159,7 @@ watch(detailOpen, (open) => {
         <div class="space-y-1">
           <CardTitle class="text-lg">Billing events</CardTitle>
           <CardDescription>
-            Provider stream for this customer — inspect payloads, normalization, retries, and subscription impact.
+            Provider stream for this subscriber — inspect payloads, normalization, retries, and subscription impact.
             Total recorded
             {{ formatCurrency(billingTotalCents, currencyHint) }}
             across {{ data?.events?.length ?? 0 }} event(s) matching filters.
@@ -270,7 +270,7 @@ watch(detailOpen, (open) => {
         </Table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      <p v-else class="p-6 text-sm text-muted-foreground">No billing events for this customer.</p>
+      <p v-else class="p-6 text-sm text-muted-foreground">No billing events for this subscriber.</p>
     </CardContent>
   </Card>
 
@@ -315,14 +315,14 @@ watch(detailOpen, (open) => {
               <h3 class="text-sm font-semibold">Links</h3>
               <div class="flex flex-col gap-2 text-sm">
                 <div>
-                  <span class="text-muted-foreground">Customer · </span>
+                  <span class="text-muted-foreground">Subscriber · </span>
                   <NuxtLink
-                    :to="`/customers/${encodeURIComponent(props.customerId)}`"
+                    :to="`/subscribers/${encodeURIComponent(props.subscriberId)}`"
                     class="font-medium text-primary underline-offset-4 hover:underline"
                   >
-                    {{ detailEvent.tenantName }}
+                    {{ detailEvent.subscriberName }}
                   </NuxtLink>
-                  <span class="ml-1 font-mono text-xs text-muted-foreground">({{ detailEvent.tenantId }})</span>
+                  <span class="ml-1 font-mono text-xs text-muted-foreground">({{ detailEvent.subscriberId }})</span>
                 </div>
                 <div v-if="detailEvent.subscriptionId">
                   <span class="text-muted-foreground">Subscription · </span>

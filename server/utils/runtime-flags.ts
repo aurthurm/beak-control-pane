@@ -3,10 +3,10 @@ import type { RuntimeFeatureFlagRow } from '../db/schema'
 export const RUNTIME_FLAG_TYPES = ['release', 'experiment', 'ops', 'permission_override'] as const
 export type RuntimeFlagType = (typeof RUNTIME_FLAG_TYPES)[number]
 
-export const RUNTIME_FLAG_SCOPES = ['global', 'product', 'tenant', 'environment'] as const
+export const RUNTIME_FLAG_SCOPES = ['global', 'product', 'subscriber', 'environment'] as const
 export type RuntimeFlagScope = (typeof RUNTIME_FLAG_SCOPES)[number]
 
-export const RUNTIME_FLAG_STRATEGIES = ['full_rollout', 'percentage', 'tenant_targeted', 'environment_specific'] as const
+export const RUNTIME_FLAG_STRATEGIES = ['full_rollout', 'percentage', 'subscriber_targeted', 'environment_specific'] as const
 export type RuntimeFlagStrategy = (typeof RUNTIME_FLAG_STRATEGIES)[number]
 
 export const RUNTIME_FLAG_STATUSES = ['active', 'scheduled', 'archived'] as const
@@ -26,8 +26,8 @@ export function rolloutStrategyLabel(key: string): string {
       return 'Full rollout'
     case 'percentage':
       return 'Percentage rollout'
-    case 'tenant_targeted':
-      return 'Tenant targeted'
+    case 'subscriber_targeted':
+      return 'Subscriber targeted'
     case 'environment_specific':
       return 'Environment-specific'
     default:
@@ -78,7 +78,7 @@ export type RuntimeFlagListItem = {
   rolloutStrategyLabel: string
   rolloutPercent: number
   globallyEnabled: boolean
-  targetTenantCount: number
+  targetSubscriberCount: number
   environmentKeys: string[]
   expiresAt: string | null
   archivedAt: string | null
@@ -89,7 +89,7 @@ export type RuntimeFlagListItem = {
 
 export type RuntimeFlagEvaluationEntry = {
   at: string
-  tenantId: string | null
+  subscriberId: string | null
   environment: string | null
   result: string
   reason: string
@@ -97,7 +97,7 @@ export type RuntimeFlagEvaluationEntry = {
 
 export type RuntimeFlagDetail = RuntimeFlagListItem & {
   rules: Record<string, unknown>
-  targetTenants: Array<{ id: string; name: string }>
+  targetSubscribers: Array<{ id: string; name: string }>
   environmentValues: Record<string, string | number | boolean>
   evaluationHistory: RuntimeFlagEvaluationEntry[]
 }
@@ -107,12 +107,12 @@ export function toRuntimeFlagListItem(
   lookups: {
     productName: (id: string | null) => string | null
     featureMeta: (id: string | null) => { name: string; key: string } | null
-    tenantName: (id: string) => string | null
+    subscriberName: (id: string) => string | null
     planIdsForFeature: (id: string | null) => string[]
     planIdsForProduct: (id: string | null) => string[]
   },
 ): RuntimeFlagListItem {
-  const targetIds = safeJsonParse<string[]>(row.targetTenantIdsJson, [])
+  const targetIds = safeJsonParse<string[]>(row.targetSubscriberIdsJson, [])
   const envVals = safeJsonParse<Record<string, string | number | boolean>>(row.environmentValuesJson, {})
   const history = safeJsonParse<RuntimeFlagEvaluationEntry[]>(row.evaluationHistoryJson, [])
   const directPlanIds = safeJsonParse<string[]>(row.planAssignmentsJson, []).filter(Boolean)
@@ -144,7 +144,7 @@ export function toRuntimeFlagListItem(
     rolloutStrategyLabel: rolloutStrategyLabel(row.rolloutStrategy),
     rolloutPercent: row.rolloutPercent,
     globallyEnabled: row.globallyEnabled,
-    targetTenantCount: targetIds.length,
+    targetSubscriberCount: targetIds.length,
     environmentKeys: Object.keys(envVals),
     expiresAt: row.expiresAt.trim() || null,
     archivedAt: row.archivedAt.trim() || null,
@@ -154,9 +154,9 @@ export function toRuntimeFlagListItem(
   }
 }
 
-/** Deterministic 0–99 bucket for percentage rollouts (stable per tenant + flag). */
-export function stableRolloutBucket(tenantId: string, flagKey: string): number {
-  const s = `${tenantId}\0${flagKey}`
+/** Deterministic 0–99 bucket for percentage rollouts (stable per subscriber + flag). */
+export function stableRolloutBucket(subscriberId: string, flagKey: string): number {
+  const s = `${subscriberId}\0${flagKey}`
   let h = 0
   for (let i = 0; i < s.length; i++) {
     h = (Math.imul(31, h) + s.charCodeAt(i)) >>> 0
@@ -165,7 +165,7 @@ export function stableRolloutBucket(tenantId: string, flagKey: string): number {
 }
 
 export type RuntimeFlagEvalContext = {
-  tenantId: string
+  subscriberId: string
   /** e.g. production, staging — matches keys in environmentValuesJson */
   environment?: string | null
   /** Tenant enterprise_segment (standard, enterprise, …) for rulesJson overlays */
@@ -197,12 +197,12 @@ export function applyRulesJsonOverlay(
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
   }
 
-  if (strList('forceDisabledTenantIds').includes(ctx.tenantId)) {
-    return { key, value: 'false', enabled: false, reason: 'rules:force_disabled_tenant' }
+  if (strList('forceDisabledSubscriberIds').includes(ctx.subscriberId)) {
+    return { key, value: 'false', enabled: false, reason: 'rules:force_disabled_subscriber' }
   }
-  if (strList('forceEnabledTenantIds').includes(ctx.tenantId)) {
+  if (strList('forceEnabledSubscriberIds').includes(ctx.subscriberId)) {
     const defStr = row.defaultValue?.trim() ?? 'true'
-    return { key, value: defStr, enabled: parseDefaultBoolean(defStr), reason: 'rules:force_enabled_tenant' }
+    return { key, value: defStr, enabled: parseDefaultBoolean(defStr), reason: 'rules:force_enabled_subscriber' }
   }
 
   const seg = (ctx.enterpriseSegment ?? '').trim().toLowerCase()
@@ -228,7 +228,7 @@ export function applyRulesJsonOverlay(
 }
 
 /**
- * Evaluate a single runtime flag for a tenant (and optional environment label).
+ * Evaluate a single runtime flag for a subscriber (and optional environment label).
  */
 export function evaluateRuntimeFlagRow(
   row: RuntimeFeatureFlagRow,
@@ -255,7 +255,7 @@ export function evaluateRuntimeFlagRow(
     return { key, value: 'false', enabled: false, reason: 'globally_disabled' }
   }
 
-  const targetIds = safeJsonParse<string[]>(row.targetTenantIdsJson, [])
+  const targetIds = safeJsonParse<string[]>(row.targetSubscriberIdsJson, [])
   const envVals = safeJsonParse<Record<string, string | number | boolean>>(row.environmentValuesJson, {})
   const envLabel = (ctx.environment ?? '').trim()
 
@@ -267,7 +267,7 @@ export function evaluateRuntimeFlagRow(
     }
     case 'percentage': {
       const pct = Math.min(100, Math.max(0, row.rolloutPercent ?? 0))
-      const bucket = stableRolloutBucket(ctx.tenantId, key)
+      const bucket = stableRolloutBucket(ctx.subscriberId, key)
       const inRollout = bucket < pct
       const enabled = inRollout ? defBool : false
       base = {
@@ -278,14 +278,14 @@ export function evaluateRuntimeFlagRow(
       }
       break
     }
-    case 'tenant_targeted': {
-      const hit = targetIds.includes(ctx.tenantId)
+    case 'subscriber_targeted': {
+      const hit = targetIds.includes(ctx.subscriberId)
       const enabled = hit ? defBool : false
       base = {
         key,
         value: enabled ? defStr : 'false',
         enabled,
-        reason: hit ? 'tenant_allowlist' : 'tenant_not_listed',
+        reason: hit ? 'subscriber_allowlist' : 'subscriber_not_listed',
       }
       break
     }
@@ -316,22 +316,22 @@ export function toRuntimeFlagDetail(
   lookups: {
     productName: (id: string | null) => string | null
     featureMeta: (id: string | null) => { name: string; key: string } | null
-    tenantName: (id: string) => string | null
+    subscriberName: (id: string) => string | null
     planIdsForFeature: (id: string | null) => string[]
     planIdsForProduct: (id: string | null) => string[]
   },
 ): RuntimeFlagDetail {
   const base = toRuntimeFlagListItem(row, lookups)
-  const targetIds = safeJsonParse<string[]>(row.targetTenantIdsJson, [])
-  const targetTenants = targetIds.map((id) => ({
+  const targetIds = safeJsonParse<string[]>(row.targetSubscriberIdsJson, [])
+  const targetSubscribers = targetIds.map((id) => ({
     id,
-    name: lookups.tenantName(id) ?? id,
+    name: lookups.subscriberName(id) ?? id,
   }))
 
   return {
     ...base,
     rules: safeJsonParse<Record<string, unknown>>(row.rulesJson, {}),
-    targetTenants,
+    targetSubscribers,
     environmentValues: safeJsonParse<Record<string, string | number | boolean>>(row.environmentValuesJson, {}),
     evaluationHistory: safeJsonParse<RuntimeFlagEvaluationEntry[]>(row.evaluationHistoryJson, []),
   }

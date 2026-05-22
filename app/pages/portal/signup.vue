@@ -4,7 +4,7 @@ import SignupForm from '~/components/signup-02/components/SignupForm.vue'
 definePageMeta({ layout: 'auth' })
 
 useSeoMeta({
-  title: 'Create customer',
+  title: 'Create subscriber',
 })
 </script>
 

@@ -13,25 +13,25 @@ import { buildEntitlementStoragePayload } from './entitlement-recompute'
 
 export type RecomputeResult = {
   entitlementId: string
-  tenantId: string
+  subscriberId: string
   productId: string
   computedAt: string
   payload: ReturnType<typeof buildEntitlementStoragePayload>
 }
 
 /**
- * Finds subscription + plan for tenant/product and upserts entitlements row.
+ * Finds subscription + plan for subscriber/product and upserts entitlements row.
  */
-export async function recomputeEntitlementForTenantProduct(
+export async function recomputeEntitlementForSubscriberProduct(
   db: LibSQLDatabase<any>,
-  tenantId: string,
+  subscriberId: string,
   productId: string,
   options?: { createIfMissing?: boolean },
 ): Promise<RecomputeResult | null> {
   const subs = await db
     .select()
     .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.tenantId, tenantId))
+    .where(eq(subscriptionsTable.subscriberId, subscriberId))
 
   let subscriptionRow: (typeof subs)[0] | null = null
   let planRow: typeof plansTable.$inferSelect | null = null
@@ -78,7 +78,7 @@ export async function recomputeEntitlementForTenantProduct(
   const existing = await db
     .select()
     .from(entitlementsTable)
-    .where(and(eq(entitlementsTable.tenantId, tenantId), eq(entitlementsTable.productId, productId)))
+    .where(and(eq(entitlementsTable.subscriberId, subscriberId), eq(entitlementsTable.productId, productId)))
     .limit(1)
 
   let entitlementId: string
@@ -98,7 +98,7 @@ export async function recomputeEntitlementForTenantProduct(
     entitlementId = `ent_${randomUUID().replace(/-/g, '').slice(0, 16)}`
     await db.insert(entitlementsTable).values({
       id: entitlementId,
-      tenantId,
+      subscriberId,
       productId,
       payloadJson: JSON.stringify(payload),
       computedAt,
@@ -107,7 +107,7 @@ export async function recomputeEntitlementForTenantProduct(
 
   return {
     entitlementId,
-    tenantId,
+    subscriberId,
     productId,
     computedAt,
     payload,

@@ -42,7 +42,7 @@ type ProductRow = {
   usageTrackingEnabled: boolean
   extraDetails: string
   planCount: number
-  tenantCount: number
+  subscriberCount: number
   createdAt: string
   updatedAt: string
 }
@@ -246,7 +246,7 @@ async function refreshAll() {
           <div class="space-y-1">
             <CardTitle>Catalog</CardTitle>
             <CardDescription>
-              Name, key, lifecycle status, deployment type, plan coverage, and customer usage.
+              Name, key, lifecycle status, deployment type, plan coverage, and subscriber usage.
             </CardDescription>
           </div>
           <div class="relative w-full sm:max-w-xs">
@@ -267,7 +267,7 @@ async function refreshAll() {
                     Plans
                   </TableHead>
                   <TableHead class="text-right">
-                    Customers
+                    Subscribers
                   </TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Updated</TableHead>
@@ -307,7 +307,7 @@ async function refreshAll() {
                     {{ product.planCount }}
                   </TableCell>
                   <TableCell class="text-right tabular-nums">
-                    {{ product.tenantCount }}
+                    {{ product.subscriberCount }}
                   </TableCell>
                   <TableCell class="whitespace-nowrap text-sm text-muted-foreground">
                     {{ formatDate(product.createdAt) }}

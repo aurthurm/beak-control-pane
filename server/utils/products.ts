@@ -123,27 +123,27 @@ export function monthlyNormalizedMrr(priceCents: number, billingCycle: string) {
   return priceCents
 }
 
-export function tenantIdsForProduct(
+export function subscriberIdsForProduct(
   productId: string,
   planIds: Set<string>,
   subscriptions: SubscriptionRow[],
-  entitlementProductRows: Array<{ tenantId: string; productId: string }>,
-  licenseRows: Array<{ tenantId: string; productId: string }>,
+  entitlementProductRows: Array<{ subscriberId: string; productId: string }>,
+  licenseRows: Array<{ subscriberId: string; productId: string }>,
 ): Set<string> {
   const tenants = new Set<string>()
   for (const sub of subscriptions) {
     if (planIds.has(sub.planId)) {
-      tenants.add(sub.tenantId)
+      tenants.add(sub.subscriberId)
     }
   }
   for (const row of entitlementProductRows) {
     if (row.productId === productId) {
-      tenants.add(row.tenantId)
+      tenants.add(row.subscriberId)
     }
   }
   for (const row of licenseRows) {
     if (row.productId === productId) {
-      tenants.add(row.tenantId)
+      tenants.add(row.subscriberId)
     }
   }
   return tenants

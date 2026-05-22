@@ -28,18 +28,18 @@ const VALID_TABS = new Set(['overview', 'subscriptions', 'audit'])
 
 const route = useRoute()
 const router = useRouter()
-const tenantId = computed(() => String(route.params.id ?? ''))
+const subscriberId = computed(() => String(route.params.id ?? ''))
 
 const { data, pending, refresh } = await useWorkspaceDashboard()
 
-const tenant = computed(() => data.value?.tenants.find((t) => t.id === tenantId.value))
+const subscriber = computed(() => data.value?.tenants.find((t) => t.id === subscriberId.value))
 const products = computed(() => [...(data.value?.products ?? [])].sort((a, b) => a.name.localeCompare(b.name)))
-const subscriptions = computed(() => data.value?.subscriptionsDetail.filter((s) => s.tenantId === tenantId.value) ?? [])
-const entitlements = computed(() => data.value?.entitlementsDetail.filter((e) => e.tenantId === tenantId.value) ?? [])
-const licenses = computed(() => data.value?.licenses.filter((l) => l.tenantId === tenantId.value) ?? [])
+const subscriptions = computed(() => data.value?.subscriptionsDetail.filter((s) => s.subscriberId === subscriberId.value) ?? [])
+const entitlements = computed(() => data.value?.entitlementsDetail.filter((e) => e.subscriberId === subscriberId.value) ?? [])
+const licenses = computed(() => data.value?.licenses.filter((l) => l.subscriberId === subscriberId.value) ?? [])
 const auditRows = computed(
   () =>
-    data.value?.auditTrail.filter((a) => a.tenantId === tenantId.value).sort(
+    data.value?.auditTrail.filter((a) => a.subscriberId === subscriberId.value).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     ) ?? [],
 )
@@ -136,8 +136,8 @@ const selectedAssignPlan = computed(() =>
 )
 
 const tenantFormFields = () => [
-  { key: 'slug' as const, label: 'Customer code (key)', placeholder: 'auto from name if empty' },
-  { key: 'name' as const, label: 'Display name', placeholder: 'Customer display name' },
+  { key: 'slug' as const, label: 'Subscriber code (key)', placeholder: 'auto from name if empty' },
+  { key: 'name' as const, label: 'Display name', placeholder: 'Subscriber display name' },
   { key: 'legalName' as const, label: 'Legal / business name', placeholder: 'Registered legal name' },
   { key: 'contactName' as const, label: 'Owner / admin contact', placeholder: 'Primary contact name' },
   { key: 'email' as const, label: 'Email', placeholder: 'billing@example.com' },
@@ -150,7 +150,7 @@ const tenantFormFields = () => [
 ]
 
 const openEdit = () => {
-  const t = tenant.value
+  const t = subscriber.value
   if (!t) return
   actionError.value = ''
   form.value = {
@@ -174,7 +174,7 @@ const openEdit = () => {
 }
 
 const openAssignSub = () => {
-  if (!tenant.value) return
+  if (!subscriber.value) return
   actionError.value = ''
   assignProductId.value = products.value[0]?.id ?? ''
   assignPlanId.value =
@@ -197,11 +197,11 @@ watch(assignProductId, (productId) => {
 })
 
 const submitEdit = async () => {
-  if (!tenant.value) return
+  if (!subscriber.value) return
   saving.value = 'edit'
   actionError.value = ''
   try {
-    await $fetch(`/api/tenants/${tenant.value.id}`, {
+    await $fetch(`/api/subscribers/${subscriber.value.id}`, {
       method: 'PATCH',
       body: {
         slug: form.value.slug,
@@ -224,18 +224,18 @@ const submitEdit = async () => {
     editOpen.value = false
     await refresh()
   } catch (e: unknown) {
-    actionError.value = e instanceof Error ? e.message : 'Could not update customer'
+    actionError.value = e instanceof Error ? e.message : 'Could not update subscriber'
   } finally {
     saving.value = ''
   }
 }
 
 const patchStatus = async (status: string) => {
-  if (!tenant.value) return
-  saving.value = tenant.value.id
+  if (!subscriber.value) return
+  saving.value = subscriber.value.id
   actionError.value = ''
   try {
-    await $fetch(`/api/tenants/${tenant.value.id}`, { method: 'PATCH', body: { status } })
+    await $fetch(`/api/subscribers/${subscriber.value.id}`, { method: 'PATCH', body: { status } })
     await refresh()
   } catch (e: unknown) {
     actionError.value = e instanceof Error ? e.message : 'Could not update status'
@@ -245,14 +245,14 @@ const patchStatus = async (status: string) => {
 }
 
 const submitAssignSub = async () => {
-  if (!tenant.value || !assignPlanId.value) return
+  if (!subscriber.value || !assignPlanId.value) return
   saving.value = 'sub'
   actionError.value = ''
   try {
     await $fetch('/api/subscriptions', {
       method: 'POST',
       body: {
-        tenantId: tenant.value.id,
+        subscriberId: subscriber.value.id,
         planId: assignPlanId.value,
         licenseCount: assignLicenseCount.value,
         activationsPerLicense: assignActivationsPerLicense.value,
@@ -268,9 +268,9 @@ const submitAssignSub = async () => {
 }
 
 useSeoMeta({
-  title: computed(() => (tenant.value ? `${site.brand.name} | ${tenant.value.name}` : `${site.brand.name} | Customer`)),
+  title: computed(() => (subscriber.value ? `${site.brand.name} | ${subscriber.value.name}` : `${site.brand.name} | Subscriber`)),
   description: computed(() =>
-    tenant.value ? `Customer profile, subscriptions, and history for ${tenant.value.name}.` : 'Customer profile.',
+    subscriber.value ? `Subscriber profile, subscriptions, and history for ${subscriber.value.name}.` : 'Subscriber profile.',
   ),
 })
 </script>
@@ -280,35 +280,35 @@ useSeoMeta({
     <ConsolePageHeader
       :breadcrumbs="[
         { label: site.brand.name, to: '/' },
-        { label: 'Customers', to: '/customers' },
-        { label: tenant?.name ?? 'Customer' },
+        { label: 'Subscribers', to: '/subscribers' },
+        { label: subscriber?.name ?? 'Subscriber' },
       ]"
     >
       <template #actions>
-        <template v-if="tenant">
+        <template v-if="subscriber">
           <Button size="sm" variant="default" @click="openEdit">
             <Pencil class="mr-1 size-3.5" />
             Edit
           </Button>
           <Button
-            v-if="tenant.status !== 'suspended'"
+            v-if="subscriber.status !== 'suspended'"
             size="sm"
             variant="destructive"
-            :disabled="saving === tenant.id"
+            :disabled="saving === subscriber.id"
             @click="patchStatus('suspended')"
           >
             <Ban class="mr-1 size-3.5" />
-            Suspend customer
+            Suspend subscriber
           </Button>
           <Button
             v-else
             size="sm"
             variant="outline"
-            :disabled="saving === tenant.id"
+            :disabled="saving === subscriber.id"
             @click="patchStatus('active')"
           >
             <Ban class="mr-1 size-3.5" />
-            Reactivate customer
+            Reactivate subscriber
           </Button>
         </template>
         <Button variant="outline" size="sm" :disabled="pending" @click="refresh">
@@ -318,30 +318,30 @@ useSeoMeta({
       </template>
     </ConsolePageHeader>
 
-    <div v-if="!tenant && !pending" class="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-      <p class="text-muted-foreground">Customer not found.</p>
+    <div v-if="!subscriber && !pending" class="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+      <p class="text-muted-foreground">Subscriber not found.</p>
       <Button as-child variant="outline">
-        <NuxtLink to="/customers">Back to customers</NuxtLink>
+        <NuxtLink to="/subscribers">Back to subscribers</NuxtLink>
       </Button>
     </div>
 
-    <div v-else-if="tenant" class="flex-1 space-y-4 p-4 pb-10 lg:p-6">
+    <div v-else-if="subscriber" class="flex-1 space-y-4 p-4 pb-10 lg:p-6">
       <p v-if="actionError" class="text-sm text-destructive">{{ actionError }}</p>
 
       <div
         class="flex flex-col gap-4 rounded-3xl border border-border/70 bg-gradient-to-br from-card/95 to-card/80 p-5 shadow-sm backdrop-blur-sm sm:flex-row sm:items-start sm:justify-between"
       >
         <div class="min-w-0 space-y-1">
-          <h1 class="text-2xl font-semibold tracking-tight">{{ tenant.name }}</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">{{ subscriber.name }}</h1>
           <p class="text-sm text-muted-foreground">
-            <span class="font-mono">{{ tenant.slug }}</span>
-            <span v-if="tenant.country"> · {{ tenant.country }}</span>
-            <span class="text-muted-foreground/80"> · Created {{ formatDate(tenant.createdAt) }}</span>
+            <span class="font-mono">{{ subscriber.slug }}</span>
+            <span v-if="subscriber.country"> · {{ subscriber.country }}</span>
+            <span class="text-muted-foreground/80"> · Created {{ formatDate(subscriber.createdAt) }}</span>
           </p>
           <div class="flex flex-wrap gap-2 pt-2">
-            <Badge class="capitalize" :variant="statusVariant(tenant.status)">{{ tenant.status }}</Badge>
-            <Badge variant="outline" class="font-normal capitalize">Billing: {{ tenant.billingStatus }}</Badge>
-            <Badge variant="outline" class="font-normal capitalize">License: {{ tenant.licenseStatus }}</Badge>
+            <Badge class="capitalize" :variant="statusVariant(subscriber.status)">{{ subscriber.status }}</Badge>
+            <Badge variant="outline" class="font-normal capitalize">Billing: {{ subscriber.billingStatus }}</Badge>
+            <Badge variant="outline" class="font-normal capitalize">License: {{ subscriber.licenseStatus }}</Badge>
           </div>
         </div>
         <div class="grid shrink-0 grid-cols-3 gap-2">
@@ -380,42 +380,42 @@ useSeoMeta({
           <div class="grid gap-6 lg:grid-cols-2">
             <Card class="overflow-hidden rounded-3xl border-border/70 bg-card/90 shadow-sm">
               <CardHeader class="space-y-2">
-                <CardTitle class="text-lg">Customer profile</CardTitle>
+                <CardTitle class="text-lg">Subscriber profile</CardTitle>
                 <CardDescription>Legal entity, billing posture, and support tier.</CardDescription>
               </CardHeader>
               <CardContent class="space-y-3 text-sm">
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Legal / business name</span>
-                  <span class="font-medium">{{ tenant.legalName || '—' }}</span>
+                  <span class="font-medium">{{ subscriber.legalName || '—' }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Industry</span>
-                  <span>{{ tenant.industry }}</span>
+                  <span>{{ subscriber.industry }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Enterprise segment</span>
-                  <span>{{ tenant.enterpriseSegment?.trim() ? tenant.enterpriseSegment : '—' }}</span>
+                  <span>{{ subscriber.enterpriseSegment?.trim() ? subscriber.enterpriseSegment : '—' }}</span>
                 </div>
                 <Separator />
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Billing mode</span>
-                  <span>{{ tenant.billingMode || '—' }}</span>
+                  <span>{{ subscriber.billingMode || '—' }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Billing provider</span>
-                  <span>{{ tenant.billingProvider || '—' }}</span>
+                  <span>{{ subscriber.billingProvider || '—' }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Support tier</span>
-                  <span>{{ tenant.supportTier || '—' }}</span>
+                  <span>{{ subscriber.supportTier || '—' }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Seats</span>
-                  <span>{{ tenant.seats }}</span>
+                  <span>{{ subscriber.seats }}</span>
                 </div>
-                <div v-if="tenant.internalNotes" class="border border-border/60 bg-muted/20 p-3">
+                <div v-if="subscriber.internalNotes" class="border border-border/60 bg-muted/20 p-3">
                   <span class="text-xs font-medium text-muted-foreground">Internal notes</span>
-                  <p class="mt-1 whitespace-pre-wrap text-sm">{{ tenant.internalNotes }}</p>
+                  <p class="mt-1 whitespace-pre-wrap text-sm">{{ subscriber.internalNotes }}</p>
                 </div>
               </CardContent>
             </Card>
@@ -428,15 +428,15 @@ useSeoMeta({
               <CardContent class="space-y-3 text-sm">
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Name</span>
-                  <span class="font-medium">{{ tenant.contactName || '—' }}</span>
+                  <span class="font-medium">{{ subscriber.contactName || '—' }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Email</span>
-                  <span>{{ tenant.email || '—' }}</span>
+                  <span>{{ subscriber.email || '—' }}</span>
                 </div>
                 <div class="grid gap-1">
                   <span class="text-muted-foreground">Phone</span>
-                  <span>{{ tenant.phone || '—' }}</span>
+                  <span>{{ subscriber.phone || '—' }}</span>
                 </div>
               </CardContent>
             </Card>
@@ -445,12 +445,12 @@ useSeoMeta({
           <Card class="overflow-hidden rounded-3xl border-border/70 bg-card/90 shadow-sm">
             <CardHeader class="space-y-2">
               <CardTitle class="text-lg">Subscribed products</CardTitle>
-              <CardDescription>Products associated with this customer.</CardDescription>
+              <CardDescription>Products associated with this subscriber.</CardDescription>
             </CardHeader>
             <CardContent>
               <div class="flex flex-wrap gap-2">
-                <Badge v-for="p in tenant.subscribedProducts" :key="p" variant="secondary">{{ p }}</Badge>
-                <span v-if="!tenant.subscribedProducts.length" class="text-sm text-muted-foreground">No products yet.</span>
+                <Badge v-for="p in subscriber.subscribedProducts" :key="p" variant="secondary">{{ p }}</Badge>
+                <span v-if="!subscriber.subscribedProducts.length" class="text-sm text-muted-foreground">No products yet.</span>
               </div>
             </CardContent>
           </Card>
@@ -461,7 +461,7 @@ useSeoMeta({
             <CardHeader class="flex flex-row flex-wrap items-end justify-between gap-4">
               <div class="space-y-1">
                 <CardTitle class="text-lg">Subscriptions &amp; plans</CardTitle>
-                <CardDescription>Subscription rows and provider references for this customer.</CardDescription>
+                <CardDescription>Subscription rows and provider references for this subscriber.</CardDescription>
               </div>
               <Button variant="outline" size="sm" @click="openAssignSub">
                 <PlusCircle class="mr-1 size-4" />
@@ -475,7 +475,7 @@ useSeoMeta({
                 class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-4 py-3 text-sm"
               >
                 <NuxtLink
-                  :to="`/customers/${tenantId}/subscription/${sub.id}`"
+                  :to="`/subscribers/${subscriberId}/subscription/${sub.id}`"
                   class="min-w-0 flex-1 transition-colors hover:text-primary"
                 >
                   <div class="font-medium">{{ sub.productName }} — {{ sub.planName }}</div>
@@ -494,7 +494,7 @@ useSeoMeta({
           <Card class="border-border/70 bg-card/90 shadow-sm">
             <CardHeader>
               <CardTitle class="text-lg">Audit timeline</CardTitle>
-              <CardDescription>Recent control-plane actions for this customer.</CardDescription>
+              <CardDescription>Recent control-plane actions for this subscriber.</CardDescription>
             </CardHeader>
             <CardContent class="relative space-y-0 pl-4 text-sm">
               <div class="absolute bottom-0 left-[7px] top-2 w-px bg-border" />
@@ -515,8 +515,8 @@ useSeoMeta({
     <Dialog v-model:open="editOpen">
       <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit customer</DialogTitle>
-          <DialogDescription>Update customer profile and internal fields.</DialogDescription>
+          <DialogTitle>Edit subscriber</DialogTitle>
+          <DialogDescription>Update subscriber profile and internal fields.</DialogDescription>
         </DialogHeader>
         <div class="grid gap-3 py-2">
           <div v-for="field in tenantFormFields()" :key="field.key" class="space-y-1.5">
@@ -567,7 +567,7 @@ useSeoMeta({
         <DialogHeader>
           <DialogTitle>Assign subscription</DialogTitle>
           <DialogDescription>
-            {{ tenant?.name }} — creates a new subscription row for the selected plan.
+            {{ subscriber?.name }} — creates a new subscription row for the selected plan.
           </DialogDescription>
         </DialogHeader>
         <div class="space-y-2 py-2">

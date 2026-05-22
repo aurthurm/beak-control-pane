@@ -11,7 +11,7 @@ import { bootstrapDatabase, getDatabaseClient } from '../db/bootstrap'
 import {
   defaultBillingModeLabel,
   productTypeLabel,
-  tenantIdsForProduct,
+  subscriberIdsForProduct,
 } from '../utils/products'
 import { getStaffOrganizationId } from '../utils/organizations'
 import { requireStaffApiWhenEnforced } from '../utils/auth-guards'
@@ -32,8 +32,8 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(productsTable.createdAt)),
     db.select().from(plansTable),
     db.select().from(subscriptionsTable),
-    db.select({ tenantId: entitlementsTable.tenantId, productId: entitlementsTable.productId }).from(entitlementsTable),
-    db.select({ tenantId: licensesTable.tenantId, productId: licensesTable.productId }).from(licensesTable),
+    db.select({ subscriberId: entitlementsTable.subscriberId, productId: entitlementsTable.productId }).from(entitlementsTable),
+    db.select({ subscriberId: licensesTable.subscriberId, productId: licensesTable.productId }).from(licensesTable),
   ])
 
   const productPlans = new Map<string, number>()
@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
   return {
     products: products.map((product) => {
       const planIds = planIdsByProduct.get(product.id) ?? new Set<string>()
-      const tenantCount = tenantIdsForProduct(product.id, planIds, subscriptions, entitlements, licenses).size
+      const subscriberCount = subscriberIdsForProduct(product.id, planIds, subscriptions, entitlements, licenses).size
 
       return {
         id: product.id,
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
         usageTrackingEnabled: product.usageTrackingEnabled,
         extraDetails: product.extraDetails,
         planCount: productPlans.get(product.id) ?? 0,
-        tenantCount,
+        subscriberCount,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
         organizationId: product.organizationId,

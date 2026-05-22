@@ -9,10 +9,10 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
   const licenseId = typeof query.licenseId === 'string' ? query.licenseId.trim() : ''
-  const tenantId = typeof query.tenantId === 'string' ? query.tenantId.trim() : ''
+  const subscriberId = typeof query.subscriberId === 'string' ? query.subscriberId.trim() : ''
 
-  if (!licenseId && !tenantId) {
-    throw createError({ statusCode: 400, statusMessage: 'licenseId or tenantId query parameter is required' })
+  if (!licenseId && !subscriberId) {
+    throw createError({ statusCode: 400, statusMessage: 'licenseId or subscriberId query parameter is required' })
   }
 
   const client = getDatabaseClient()
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     return { activations: rows }
   }
 
-  const licRows = await db.select({ id: licensesTable.id }).from(licensesTable).where(eq(licensesTable.tenantId, tenantId))
+  const licRows = await db.select({ id: licensesTable.id }).from(licensesTable).where(eq(licensesTable.subscriberId, subscriberId))
   const ids = licRows.map((r) => r.id)
   if (!ids.length) {
     return { activations: [] }

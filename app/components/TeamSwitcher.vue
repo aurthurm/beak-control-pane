@@ -91,10 +91,10 @@ async function selectOrganization(organizationId: string) {
             </div>
             <div class="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
               <span class="truncate font-medium">
-                {{ activeOrganization?.name ?? 'No customer' }}
+                {{ activeOrganization?.name ?? 'No subscriber' }}
               </span>
               <span class="truncate text-xs">
-                {{ activeOrganization ? `${activeOrganization.membershipRole} · ${activeOrganization.slug}` : 'Select a customer' }}
+                {{ activeOrganization ? `${activeOrganization.membershipRole} · ${activeOrganization.slug}` : 'Select a subscriber' }}
               </span>
             </div>
             <ChevronsUpDown class="ml-auto group-data-[collapsible=icon]:hidden" />
@@ -107,7 +107,7 @@ async function selectOrganization(organizationId: string) {
           :side-offset="4"
         >
           <DropdownMenuLabel class="text-xs text-muted-foreground">
-            Customers
+            Subscribers
           </DropdownMenuLabel>
           <DropdownMenuItem
             v-for="(organization, index) in organizations"
@@ -137,7 +137,7 @@ async function selectOrganization(organizationId: string) {
               <span class="text-[10px] font-semibold">--</span>
             </div>
             <div class="font-medium text-muted-foreground">
-              No customers available
+              No subscribers available
             </div>
           </DropdownMenuItem>
         </DropdownMenuContent>

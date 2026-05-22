@@ -51,7 +51,7 @@ const filtered = computed(
       const hay = [
         license.id,
         license.licenseKey,
-        license.tenantName,
+        license.subscriberName,
         license.productName,
         license.planName,
         license.planSlug,
@@ -75,7 +75,7 @@ function prettyPayload(raw: string) {
 }
 
 function licenseDetailPath(lic: LicenseRow) {
-  return `/customers/${encodeURIComponent(lic.tenantId)}/license/${encodeURIComponent(lic.id)}`
+  return `/subscribers/${encodeURIComponent(lic.subscriberId)}/license/${encodeURIComponent(lic.id)}`
 }
 
 async function copyText(text: string) {
@@ -135,7 +135,7 @@ async function submitGenerate() {
     await refresh()
     const subscription = data.value?.subscriptionsDetail.find((sub) => sub.id === genSubscriptionId.value)
     if (created?.id && subscription) {
-      await navigateTo(`/customers/${encodeURIComponent(subscription.tenantId)}/license/${encodeURIComponent(created.id)}`)
+      await navigateTo(`/subscribers/${encodeURIComponent(subscription.subscriberId)}/license/${encodeURIComponent(created.id)}`)
     }
   } catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string }; message?: string }
@@ -193,11 +193,11 @@ watch(selectedSubscription, (subscription) => {
                 <Label for="lic-subscription">Subscription</Label>
                 <NativeSelect id="lic-subscription" v-model="genSubscriptionId">
                   <NativeSelectOption v-for="sub in subscriptionOptions" :key="sub.id" :value="sub.id">
-                    {{ sub.tenantName }} · {{ sub.productName }} · {{ sub.planName }}
+                    {{ sub.subscriberName }} · {{ sub.productName }} · {{ sub.planName }}
                   </NativeSelectOption>
                 </NativeSelect>
                 <p v-if="selectedSubscription" class="text-xs text-muted-foreground">
-                  {{ selectedSubscription.tenantName }} · {{ selectedSubscription.productName }}
+                  {{ selectedSubscription.subscriberName }} · {{ selectedSubscription.productName }}
                   · {{ selectedSubscription.licenseCount }} licenses
                   · {{ selectedSubscription.activationsPerLicense }} activations/license
                 </p>
@@ -248,7 +248,7 @@ watch(selectedSubscription, (subscription) => {
           </div>
           <div class="relative w-full sm:max-w-xs">
             <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="search" class="pl-9" placeholder="Search by key, customer, product, plan…" />
+            <Input v-model="search" class="pl-9" placeholder="Search by key, subscriber, product, plan…" />
           </div>
         </CardHeader>
         <CardContent class="p-0">
@@ -258,7 +258,7 @@ watch(selectedSubscription, (subscription) => {
               <TableHeader>
                 <TableRow>
                   <TableHead>License ID</TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Subscriber</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>Plan / edition</TableHead>
                   <TableHead>Mode</TableHead>
@@ -283,7 +283,7 @@ watch(selectedSubscription, (subscription) => {
                     <div class="font-mono text-xs font-medium">{{ license.id }}</div>
                     <div class="font-mono text-[11px] text-muted-foreground">{{ license.licenseKey }}</div>
                   </TableCell>
-                  <TableCell class="font-medium">{{ license.tenantName }}</TableCell>
+                  <TableCell class="font-medium">{{ license.subscriberName }}</TableCell>
                   <TableCell>{{ license.productName }}</TableCell>
                   <TableCell>
                     <div class="text-sm">{{ license.planName ?? '—' }}</div>

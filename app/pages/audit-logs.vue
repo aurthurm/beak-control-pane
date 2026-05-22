@@ -102,7 +102,7 @@ const filtered = computed(() => {
       entry.resourceType,
       entry.resourceId,
       entry.resourceName,
-      entry.tenantName,
+      entry.subscriberName,
       entry.source,
       entry.result,
     ].some((field) => field.toLowerCase().includes(query.value)),
@@ -138,8 +138,8 @@ const rawEventText = computed(() => {
   const { payload, parseError } = parseAuditDetailsJson(e.detailsJson)
   const event = {
     auditId: e.id,
-    tenantId: e.tenantId,
-    tenantName: e.tenantName,
+    subscriberId: e.subscriberId,
+    subscriberName: e.subscriberName,
     actor: e.actor,
     action: e.action,
     entityType: e.resourceType,
@@ -183,7 +183,7 @@ function exportAuditReport() {
     'Timestamp',
     'Source',
     'Result',
-    'Customer',
+    'Subscriber',
   ]
   const lines = [
     header.join(','),
@@ -198,7 +198,7 @@ function exportAuditReport() {
         csvEscape(e.createdAt),
         csvEscape(e.source),
         csvEscape(e.result),
-        csvEscape(e.tenantName),
+        csvEscape(e.subscriberName),
       ].join(','),
     ),
   ]
@@ -216,8 +216,8 @@ function exportAuditJson() {
     const { payload, parseError } = parseAuditDetailsJson(e.detailsJson)
     return {
       auditId: e.id,
-      tenantId: e.tenantId,
-      tenantName: e.tenantName,
+      subscriberId: e.subscriberId,
+      subscriberName: e.subscriberName,
       actor: e.actor,
       action: e.action,
       entityType: e.resourceType,

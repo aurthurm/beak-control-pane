@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
-import { billingEventsTable, plansTable, subscriptionsTable, tenantsTable } from '../../db/schema'
+import { billingEventsTable, plansTable, subscriptionsTable, subscribersTable } from '../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
 import { drizzle } from 'drizzle-orm/libsql'
 import { mapBillingEventRow } from '../../utils/billing-events-map'
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const eventType = typeof query.eventType === 'string' ? query.eventType.trim() : ''
   const status = typeof query.status === 'string' ? query.status.trim().toLowerCase() : ''
   const search = typeof query.q === 'string' ? query.q.trim().toLowerCase() : ''
-  const tenantIdFilter = typeof query.tenant === 'string' ? query.tenant.trim() : ''
+  const subscriberIdFilter = typeof query.subscriber === 'string' ? query.subscriber.trim() : ''
 
   const client = getDatabaseClient()
   await bootstrapDatabase(client)
@@ -24,9 +24,9 @@ export default defineEventHandler(async (event) => {
   const organizationId = getStaffOrganizationId(event)
 
   const orgTenantRows = await db
-    .select({ id: tenantsTable.id })
-    .from(tenantsTable)
-    .where(eq(tenantsTable.organizationId, organizationId))
+    .select({ id: subscribersTable.id })
+    .from(subscribersTable)
+    .where(eq(subscribersTable.organizationId, organizationId))
   const orgTenantIds = orgTenantRows.map((t) => t.id)
 
   const conditions = []
@@ -46,13 +46,13 @@ export default defineEventHandler(async (event) => {
     conditions.push(eq(billingEventsTable.processingStatus, status))
   }
 
-  if (tenantIdFilter) {
-    if (!orgTenantIds.includes(tenantIdFilter)) {
+  if (subscriberIdFilter) {
+    if (!orgTenantIds.includes(subscriberIdFilter)) {
       return { events: [], providers: [], eventTypes: [] }
     }
-    conditions.push(eq(billingEventsTable.tenantId, tenantIdFilter))
+    conditions.push(eq(billingEventsTable.subscriberId, subscriberIdFilter))
   } else if (orgTenantIds.length) {
-    conditions.push(inArray(billingEventsTable.tenantId, orgTenantIds))
+    conditions.push(inArray(billingEventsTable.subscriberId, orgTenantIds))
   } else {
     return { events: [], providers: [], eventTypes: [] }
   }
@@ -64,9 +64,9 @@ export default defineEventHandler(async (event) => {
     .orderBy(desc(billingEventsTable.occurredAt))
 
   const [tenantRows, subscriptionRows, planRows] = await Promise.all([
-    db.select().from(tenantsTable).where(eq(tenantsTable.organizationId, organizationId)),
+    db.select().from(subscribersTable).where(eq(subscribersTable.organizationId, organizationId)),
     orgTenantIds.length
-      ? db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.tenantId, orgTenantIds))
+      ? db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.subscriberId, orgTenantIds))
       : Promise.resolve([]),
     db.select().from(plansTable),
   ])
@@ -79,13 +79,13 @@ export default defineEventHandler(async (event) => {
     const sub = subscriptionRows.find((s) => s.id === subId)
     if (!sub) return subId
     const plan = planMap.get(sub.planId)
-    const tenant = tenantMap.get(sub.tenantId)
-    const bits = [tenant?.name, plan?.name].filter(Boolean)
+    const subscriber = tenantMap.get(sub.subscriberId)
+    const bits = [subscriber?.name, plan?.name].filter(Boolean)
     return bits.length ? bits.join(' · ') : subId
   }
 
   let items = rows.map((row) =>
-    mapBillingEventRow(row, tenantMap.get(row.tenantId)?.name ?? row.tenantId, subscriptionLabel(row.subscriptionId)),
+    mapBillingEventRow(row, tenantMap.get(row.subscriberId)?.name ?? row.subscriberId, subscriptionLabel(row.subscriptionId)),
   )
 
   if (search) {
@@ -94,8 +94,8 @@ export default defineEventHandler(async (event) => {
         item.id,
         item.provider,
         item.eventType,
-        item.tenantName,
-        item.tenantId,
+        item.subscriberName,
+        item.subscriberId,
         item.subscriptionLabel ?? '',
         item.subscriptionId ?? '',
         item.status,

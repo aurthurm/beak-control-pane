@@ -31,7 +31,7 @@ const activeOrganizationId = computed(() => props.summary?.activeOrganizationId 
           <div class="space-y-3">
             <div class="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">
-                Customer portal
+                Subscriber portal
               </Badge>
               <Badge
                 v-if="summary?.activeOrganization"

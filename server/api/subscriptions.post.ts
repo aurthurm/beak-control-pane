@@ -5,7 +5,7 @@ import { getBillingProvider } from '../core/billing/registry'
 import { requireStaffApiWhenEnforced } from '../utils/auth-guards'
 
 type Body = {
-  tenantId?: string
+  subscriberId?: string
   planId?: string
   provider?: string
   providerRef?: string
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return createSubscriptionRecord(db, {
-    tenantId: body.tenantId ?? '',
+    subscriberId: body.subscriberId ?? '',
     planId: body.planId ?? '',
     provider,
     providerRef: body.providerRef?.trim() ?? '',

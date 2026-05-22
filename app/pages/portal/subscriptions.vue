@@ -29,7 +29,7 @@ const metrics = computed(() => {
 <template>
     <PortalShell
       title="Subscriptions"
-    subtitle="Current plans, renewal timing, and billing posture for the active customer."
+    subtitle="Current plans, renewal timing, and billing posture for the active subscriber."
       :summary="summary ?? null"
       :pending="pending"
       :error="error ? 'Unable to load portal data.' : null"
@@ -52,7 +52,7 @@ const metrics = computed(() => {
       <CardHeader>
         <CardTitle>Billing subscriptions</CardTitle>
         <CardDescription>
-          {{ rows.length }} subscriptions tied to the active customer.
+          {{ rows.length }} subscriptions tied to the active subscriber.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -74,7 +74,7 @@ const metrics = computed(() => {
                     {{ row.productName }}
                   </div>
                   <div class="text-muted-foreground">
-                    {{ row.tenantName }}
+                    {{ row.subscriberName }}
                   </div>
                 </td>
                 <td class="px-4 py-4 align-top">
@@ -122,7 +122,7 @@ const metrics = computed(() => {
             No subscriptions yet
           </div>
           <p class="mt-2 text-sm text-muted-foreground">
-            Once the customer has an active plan, it will appear here with renewal and billing details.
+            Once the subscriber has an active plan, it will appear here with renewal and billing details.
           </p>
         </div>
       </CardContent>

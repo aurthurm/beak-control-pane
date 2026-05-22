@@ -40,7 +40,7 @@ type RuntimeFlagListItem = {
   rolloutStrategyLabel: string
   rolloutPercent: number
   globallyEnabled: boolean
-  targetTenantCount: number
+  targetSubscriberCount: number
   environmentKeys: string[]
   expiresAt: string | null
   archivedAt: string | null
@@ -51,11 +51,11 @@ type RuntimeFlagListItem = {
 
 type RuntimeFlagDetail = RuntimeFlagListItem & {
   rules: Record<string, unknown>
-  targetTenants: Array<{ id: string; name: string }>
+  targetSubscribers: Array<{ id: string; name: string }>
   environmentValues: Record<string, string | number | boolean>
   evaluationHistory: Array<{
     at: string
-    tenantId: string | null
+    subscriberId: string | null
     environment: string | null
     result: string
     reason: string
@@ -111,7 +111,7 @@ type FormModel = {
   globallyEnabled: boolean
   rulesJsonText: string
   envJsonText: string
-  targetTenantIds: string[]
+  targetSubscriberIds: string[]
   planIds: string[]
   expiresAt: string
 }
@@ -150,7 +150,7 @@ function emptyForm(): FormModel {
     globallyEnabled: true,
     rulesJsonText: '{}',
     envJsonText: '{}',
-    targetTenantIds: [],
+    targetSubscriberIds: [],
     planIds: [],
     expiresAt: '',
   }
@@ -171,19 +171,19 @@ const detailFlag = ref<RuntimeFlagDetail | null>(null)
 
 const rowSavingId = ref<string | null>(null)
 
-function tenantChecked(tenantId: string, form: FormModel): boolean {
-  return form.targetTenantIds.includes(tenantId)
+function subscriberChecked(subscriberId: string, form: FormModel): boolean {
+  return form.targetSubscriberIds.includes(subscriberId)
 }
 
 function planChecked(planId: string, form: FormModel): boolean {
   return form.planIds.includes(planId)
 }
 
-function toggleTenant(tenantId: string, form: FormModel, checked: boolean) {
-  const set = new Set(form.targetTenantIds)
-  if (checked) set.add(tenantId)
-  else set.delete(tenantId)
-  form.targetTenantIds = [...set]
+function toggleSubscriber(subscriberId: string, form: FormModel, checked: boolean) {
+  const set = new Set(form.targetSubscriberIds)
+  if (checked) set.add(subscriberId)
+  else set.delete(subscriberId)
+  form.targetSubscriberIds = [...set]
 }
 
 function togglePlan(planId: string, form: FormModel, checked: boolean) {
@@ -201,7 +201,7 @@ function parseJsonField<T>(raw: string, label: string): T {
   }
 }
 
-const tenantsForForm = computed(() => data.value?.lookups.tenants ?? [])
+const subscribersForForm = computed(() => data.value?.lookups.tenants ?? [])
 const featuresForForm = computed(() => data.value?.lookups.features ?? [])
 
 function featureOptionLabel(featureId: string, name: string, key: string): string {
@@ -237,7 +237,7 @@ async function submitCreate() {
         rolloutPercent: createForm.value.rolloutPercent,
         globallyEnabled: createForm.value.globallyEnabled,
         rules,
-        targetTenantIds: createForm.value.targetTenantIds,
+        targetSubscriberIds: createForm.value.targetSubscriberIds,
         environmentValues,
         planIds: createForm.value.planIds,
       },
@@ -290,7 +290,7 @@ async function openEdit(row: RuntimeFlagListItem) {
     globallyEnabled: f.globallyEnabled,
     rulesJsonText: JSON.stringify(f.rules, null, 2),
     envJsonText: JSON.stringify(f.environmentValues, null, 2),
-    targetTenantIds: f.targetTenants.map((t) => t.id),
+    targetSubscriberIds: f.targetSubscribers.map((t) => t.id),
     planIds: f.planIds,
     expiresAt: f.expiresAt ?? '',
   }
@@ -326,7 +326,7 @@ async function submitEdit() {
         rolloutPercent: editForm.value.rolloutPercent,
         globallyEnabled: editForm.value.globallyEnabled,
         rules,
-        targetTenantIds: editForm.value.targetTenantIds,
+        targetSubscriberIds: editForm.value.targetSubscriberIds,
         environmentValues,
         planIds: editForm.value.planIds,
         expiresAt: editForm.value.expiresAt || null,
@@ -586,7 +586,7 @@ defineExpose({ refresh })
             <NativeSelect :id="`rf-${idSafe}-c-scope`" v-model="createForm.scope">
               <NativeSelectOption value="global">Global</NativeSelectOption>
               <NativeSelectOption value="product">Product</NativeSelectOption>
-              <NativeSelectOption value="tenant">Customer</NativeSelectOption>
+              <NativeSelectOption value="subscriber">Subscriber</NativeSelectOption>
               <NativeSelectOption value="environment">Environment</NativeSelectOption>
             </NativeSelect>
           </div>
@@ -599,7 +599,7 @@ defineExpose({ refresh })
             <NativeSelect :id="`rf-${idSafe}-c-strat`" v-model="createForm.rolloutStrategy">
               <NativeSelectOption value="full_rollout">Full rollout</NativeSelectOption>
               <NativeSelectOption value="percentage">Percentage rollout</NativeSelectOption>
-              <NativeSelectOption value="tenant_targeted">Customer targeted</NativeSelectOption>
+              <NativeSelectOption value="subscriber_targeted">Subscriber targeted</NativeSelectOption>
               <NativeSelectOption value="environment_specific">Environment-specific</NativeSelectOption>
             </NativeSelect>
           </div>
@@ -639,15 +639,15 @@ defineExpose({ refresh })
             <Textarea :id="`rf-${idSafe}-c-env`" v-model="createForm.envJsonText" class="min-h-[88px] font-mono" rows="3" />
           </div>
           <div class="space-y-2 sm:col-span-2">
-            <Label>Target customers</Label>
+            <Label>Target subscribers</Label>
             <ScrollArea class="h-36 rounded-md border border-border/60 p-2">
-              <div v-for="t in tenantsForForm" :key="`c-${t.id}`" class="flex cursor-pointer items-center gap-2 py-1 text-sm">
+              <div v-for="t in subscribersForForm" :key="`c-${t.id}`" class="flex cursor-pointer items-center gap-2 py-1 text-sm">
                 <Checkbox
-                  :id="`rf-${idSafe}-tenant-c-${t.id}`"
-                  :model-value="tenantChecked(t.id, createForm)"
-                  @update:model-value="(v) => toggleTenant(t.id, createForm, v === true)"
+                  :id="`rf-${idSafe}-subscriber-c-${t.id}`"
+                  :model-value="subscriberChecked(t.id, createForm)"
+                  @update:model-value="(v) => toggleSubscriber(t.id, createForm, v === true)"
                 />
-                <Label :for="`rf-${idSafe}-tenant-c-${t.id}`" class="flex flex-1 cursor-pointer items-center gap-2 font-normal">
+                <Label :for="`rf-${idSafe}-subscriber-c-${t.id}`" class="flex flex-1 cursor-pointer items-center gap-2 font-normal">
                   <span>{{ t.name }}</span>
                   <span class="text-xs text-muted-foreground">{{ t.id }}</span>
                 </Label>
@@ -716,7 +716,7 @@ defineExpose({ refresh })
             <NativeSelect :id="`rf-${idSafe}-e-scope`" v-model="editForm.scope">
               <NativeSelectOption value="global">Global</NativeSelectOption>
               <NativeSelectOption value="product">Product</NativeSelectOption>
-              <NativeSelectOption value="tenant">Customer</NativeSelectOption>
+              <NativeSelectOption value="subscriber">Subscriber</NativeSelectOption>
               <NativeSelectOption value="environment">Environment</NativeSelectOption>
             </NativeSelect>
           </div>
@@ -729,7 +729,7 @@ defineExpose({ refresh })
             <NativeSelect :id="`rf-${idSafe}-e-strat`" v-model="editForm.rolloutStrategy">
               <NativeSelectOption value="full_rollout">Full rollout</NativeSelectOption>
               <NativeSelectOption value="percentage">Percentage rollout</NativeSelectOption>
-              <NativeSelectOption value="tenant_targeted">Customer targeted</NativeSelectOption>
+              <NativeSelectOption value="subscriber_targeted">Subscriber targeted</NativeSelectOption>
               <NativeSelectOption value="environment_specific">Environment-specific</NativeSelectOption>
             </NativeSelect>
           </div>
@@ -770,15 +770,15 @@ defineExpose({ refresh })
             <Textarea :id="`rf-${idSafe}-e-env`" v-model="editForm.envJsonText" class="min-h-[88px] font-mono" rows="4" />
           </div>
           <div class="space-y-2 sm:col-span-2">
-            <Label>Target customers</Label>
+            <Label>Target subscribers</Label>
             <ScrollArea class="h-36 rounded-md border border-border/60 p-2">
-              <div v-for="t in tenantsForForm" :key="`e-${t.id}`" class="flex cursor-pointer items-center gap-2 py-1 text-sm">
+              <div v-for="t in subscribersForForm" :key="`e-${t.id}`" class="flex cursor-pointer items-center gap-2 py-1 text-sm">
                 <Checkbox
-                  :id="`rf-${idSafe}-tenant-e-${t.id}`"
-                  :model-value="tenantChecked(t.id, editForm)"
-                  @update:model-value="(v) => toggleTenant(t.id, editForm, v === true)"
+                  :id="`rf-${idSafe}-subscriber-e-${t.id}`"
+                  :model-value="subscriberChecked(t.id, editForm)"
+                  @update:model-value="(v) => toggleSubscriber(t.id, editForm, v === true)"
                 />
-                <Label :for="`rf-${idSafe}-tenant-e-${t.id}`" class="cursor-pointer font-normal">
+                <Label :for="`rf-${idSafe}-subscriber-e-${t.id}`" class="cursor-pointer font-normal">
                   {{ t.name }}
                 </Label>
               </div>
@@ -873,10 +873,10 @@ defineExpose({ refresh })
           </div>
           <div>
             <h4 class="mb-2 text-sm font-medium">
-              Targeted customers
+              Targeted subscribers
             </h4>
-            <ul v-if="detailFlag.targetTenants.length" class="space-y-1 text-sm">
-              <li v-for="t in detailFlag.targetTenants" :key="t.id">
+            <ul v-if="detailFlag.targetSubscribers.length" class="space-y-1 text-sm">
+              <li v-for="t in detailFlag.targetSubscribers" :key="t.id">
                 {{ t.name }} <span class="text-xs text-muted-foreground">({{ t.id }})</span>
               </li>
             </ul>
@@ -923,7 +923,7 @@ defineExpose({ refresh })
                 <div class="text-xs text-muted-foreground">
                   {{ formatDate(ev.at) }}
                   <template v-if="ev.environment">· {{ ev.environment }}</template>
-                  <template v-if="ev.tenantId">· {{ ev.tenantId }}</template>
+                  <template v-if="ev.subscriberId">· {{ ev.subscriberId }}</template>
                 </div>
                 <div class="mt-1 font-medium">
                   Result: <code>{{ ev.result }}</code>

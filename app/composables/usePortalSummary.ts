@@ -8,7 +8,7 @@ export type PortalMembershipItem = {
   membershipRole: string
   counts: {
     productCount: number
-    tenantCount: number
+    subscriberCount: number
     subscriptionCount: number
     activeSubscriptionCount: number
     licenseCount: number
@@ -21,7 +21,7 @@ export type PortalMembershipItem = {
 
 export type PortalSubscriptionItem = {
   id: string
-  tenantName: string
+  subscriberName: string
   productName: string
   planName: string
   status: string
@@ -39,7 +39,7 @@ export type PortalSubscriptionItem = {
   autoRenew: boolean
   manualContract: boolean
   pausedAt: string
-  tenantId: string
+  subscriberId: string
   planId: string
   productId: string
   provider: string
@@ -52,7 +52,7 @@ export type PortalSubscriptionItem = {
 
 export type PortalLicenseItem = {
   id: string
-  tenantName: string
+  subscriberName: string
   productName: string
   licenseKey: string
   mode: string
@@ -71,7 +71,7 @@ export type PortalLicenseItem = {
 
 export type PortalUsageItem = {
   id: string
-  tenantName: string
+  subscriberName: string
   productName: string
   metric: string
   metricLabel: string
@@ -88,7 +88,7 @@ export type PortalUsageItem = {
 
 export type PortalEntitlementItem = {
   id: string
-  tenantName: string
+  subscriberName: string
   productName: string
   computedAt: string
   computedAtLabel: string
@@ -116,7 +116,7 @@ export type PortalSummaryResponse = {
   }
   overview: {
     productCount: number
-    tenantCount: number
+    subscriberCount: number
     subscriptionCount: number
     activeSubscriptionCount: number
     licenseCount: number

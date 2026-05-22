@@ -169,7 +169,7 @@ export default defineEventHandler(async (event) => {
 
   await db.insert(auditLogsTable).values({
     id: `aud_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
-    tenantId: null,
+    subscriberId: null,
     actor: 'console',
     action: 'catalog.feature_updated',
     resourceType: 'feature',

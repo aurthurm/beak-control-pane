@@ -6,7 +6,7 @@ export type BillingReconcileOp =
       op: 'stripe_upsert_subscription'
       stripeSubscriptionId: string
       stripeCustomerId: string
-      tenantId?: string
+      subscriberId?: string
       planId?: string
       status: string
       currentPeriodEndIso?: string
@@ -23,7 +23,7 @@ export type NormalizedBillingEvent = {
   provider: string
   /** Provider-native event type */
   eventType: string
-  tenantId: string
+  subscriberId: string
   /** Our subscription id when known */
   subscriptionId: string | null
   amountCents: number
@@ -69,13 +69,13 @@ export type ProviderSubscription = {
 }
 
 export type CheckoutSessionParams = {
-  tenantId: string
+  subscriberId: string
   planId: string
   successUrl: string
   cancelUrl: string
 }
 
 export type PortalSessionParams = {
-  tenantId: string
+  subscriberId: string
   returnUrl: string
 }

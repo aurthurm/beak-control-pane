@@ -223,7 +223,7 @@ export default defineEventHandler(async (event) => {
             : 'subscription.updated'
 
   await insertAuditLog(db, {
-    tenantId: existing.tenantId,
+    subscriberId: existing.subscriberId,
     actor: 'console',
     action,
     resourceType: 'subscription',

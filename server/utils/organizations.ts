@@ -20,19 +20,6 @@ export async function migrateOrganizationsTable(client: Client) {
     updated_at TEXT NOT NULL DEFAULT ''
   );`)
 
-  const now = new Date().toISOString()
-  await client.execute({
-    sql: `INSERT OR IGNORE INTO organizations (id, slug, name, status, created_at, updated_at)
-          VALUES (?, ?, ?, 'active', ?, ?)`,
-    args: [DEFAULT_ORGANIZATION_ID, 'beak', 'Beak', now, now],
-  })
-  await client.execute({
-    sql: `UPDATE organizations
-          SET slug = 'beak', name = 'Beak', updated_at = ?
-          WHERE id = ?`,
-    args: [now, DEFAULT_ORGANIZATION_ID],
-  })
-
   const prodInfo = await client.execute('PRAGMA table_info(products)')
   const prodCols = new Set<string>()
   for (const row of prodInfo.rows) {
@@ -80,40 +67,12 @@ export async function migrateOrganizationsTable(client: Client) {
 }
 
 async function migrateProductsSlugUniqueIndex(client: Client) {
-  const indexes = await client.execute('PRAGMA index_list(products)')
-  const rows = indexes.rows as unknown as Array<Record<string, unknown>>
-  for (const row of rows) {
-    const unique = row.unique
-    const name = String(row.name ?? '')
-    if (Number(unique) === 1) {
-      const info = await client.execute({ sql: `PRAGMA index_info(${name})`, args: [] })
-      const cols = (info.rows as unknown as Array<Record<string, unknown>>).map((r) => String(r.name ?? ''))
-      if (cols.length === 1 && cols[0] === 'slug') {
-        await client.execute(`DROP INDEX IF EXISTS "${name}"`)
-      }
-    }
-  }
-
   await client.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_products_organization_slug ON products(organization_id, slug)`,
   )
 }
 
 async function migrateTenantsSlugUniqueIndex(client: Client) {
-  const indexes = await client.execute('PRAGMA index_list(tenants)')
-  const rows = indexes.rows as unknown as Array<Record<string, unknown>>
-  for (const row of rows) {
-    const unique = row.unique
-    const name = String(row.name ?? '')
-    if (Number(unique) === 1) {
-      const info = await client.execute({ sql: `PRAGMA index_info(${name})`, args: [] })
-      const cols = (info.rows as unknown as Array<Record<string, unknown>>).map((r) => String(r.name ?? ''))
-      if (cols.length === 1 && cols[0] === 'slug') {
-        await client.execute(`DROP INDEX IF EXISTS "${name}"`)
-      }
-    }
-  }
-
   await client.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_tenants_organization_slug ON tenants(organization_id, slug)`,
   )

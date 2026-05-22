@@ -5,7 +5,7 @@ const USAGE_ALERT_ACTIONS = new Set(['usage.warning_threshold', 'usage.limit_exc
  */
 export function notifyUsageAuditWebhook(payload: {
   action: string
-  tenantId: string | null
+  subscriberId: string | null
   resourceId: string
   details: unknown
 }): void {
@@ -17,7 +17,7 @@ export function notifyUsageAuditWebhook(payload: {
   const body = JSON.stringify({
     type: 'bcp.usage_alert',
     action: payload.action,
-    tenantId: payload.tenantId,
+    subscriberId: payload.subscriberId,
     resourceId: payload.resourceId,
     details: payload.details,
     at: new Date().toISOString(),

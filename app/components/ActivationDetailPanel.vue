@@ -29,7 +29,7 @@ export type ActivationDetailPayload = {
     status: string
     mode: string
   } | null
-  tenant: { id: string; name: string } | null
+  subscriber: { id: string; name: string } | null
   product: { id: string; name: string } | null
   indicators: {
     stale: boolean
@@ -56,7 +56,7 @@ export type ActivationDetailPayload = {
 const props = withDefaults(
   defineProps<{
     activationId: string | null
-    /** Hide license/tenant summary and siblings — used when listing activations alongside the panel. */
+    /** Hide license/subscriber summary and siblings — used when listing activations alongside the panel. */
     embedMode?: boolean
   }>(),
   { embedMode: false },
@@ -113,20 +113,20 @@ async function patchAction(action: 'release' | 'invalidate' | 'checkin') {
 defineExpose({ refresh })
 
 function licenseWorkspaceQuery(extra: Record<string, string> = {}) {
-  const tenant = data.value?.tenant
+  const subscriber = data.value?.subscriber
   const lic = data.value?.license
-  if (!tenant || !lic) {
+  if (!subscriber || !lic) {
     return null
   }
   return {
-    path: `/customers/${encodeURIComponent(tenant.id)}/license/${encodeURIComponent(lic.id)}`,
+    path: `/subscribers/${encodeURIComponent(subscriber.id)}/license/${encodeURIComponent(lic.id)}`,
     query: { tab: 'activations', ...extra },
   }
 }
 
 const licenseHubHref = computed(() => licenseWorkspaceQuery())
 
-const tenantHubHref = computed(() => (data.value?.tenant ? `/customers/${encodeURIComponent(data.value.tenant.id)}` : null))
+const subscriberHubHref = computed(() => (data.value?.subscriber ? `/subscribers/${encodeURIComponent(data.value.subscriber.id)}` : null))
 
 const violationsNewestFirst = computed(() => [...(data.value?.activation.violations ?? [])].reverse())
 </script>
@@ -197,18 +197,18 @@ const violationsNewestFirst = computed(() => [...(data.value?.activation.violati
 
         <Card class="border-border/70">
           <CardHeader>
-            <CardTitle class="text-base">Customer &amp; product</CardTitle>
+            <CardTitle class="text-base">Subscriber &amp; product</CardTitle>
           </CardHeader>
           <CardContent class="space-y-2 text-sm">
-            <div v-if="data.tenant">
-              <span class="text-muted-foreground">Customer</span>
-              <div class="font-medium">{{ data.tenant.name }}</div>
+            <div v-if="data.subscriber">
+              <span class="text-muted-foreground">Subscriber</span>
+              <div class="font-medium">{{ data.subscriber.name }}</div>
               <NuxtLink
-                v-if="tenantHubHref"
-                :to="tenantHubHref"
+                v-if="subscriberHubHref"
+                :to="subscriberHubHref"
                 class="mt-1 inline-block text-xs text-primary underline-offset-4 hover:underline"
               >
-                Customer profile
+                Subscriber profile
               </NuxtLink>
             </div>
             <div v-if="data.product">
@@ -354,9 +354,9 @@ const violationsNewestFirst = computed(() => [...(data.value?.activation.violati
                 <TableRow v-for="s in data.siblings" :key="s.id">
                   <TableCell class="font-mono text-xs">
                     <NuxtLink
-                      v-if="data.tenant && data.license"
+                      v-if="data.subscriber && data.license"
                       :to="{
-                        path: `/customers/${data.tenant.id}/license/${data.license.id}`,
+                        path: `/subscribers/${data.subscriber.id}/license/${data.license.id}`,
                         query: { tab: 'activations', activation: s.id },
                       }"
                       class="text-primary underline-offset-4 hover:underline"

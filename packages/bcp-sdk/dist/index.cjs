@@ -27,7 +27,7 @@ module.exports = __toCommonJS(index_exports);
 var import_jose = require("jose");
 var BcpClient = class {
   baseUrl;
-  tenantId;
+  subscriberId;
   productId;
   publicKeyPem;
   ingestApiKey;
@@ -36,7 +36,7 @@ var BcpClient = class {
   offlinePayload = null;
   constructor(opts) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, "");
-    this.tenantId = opts.tenantId;
+    this.subscriberId = opts.subscriberId;
     this.productId = opts.productId;
     this.publicKeyPem = opts.publicKeyPem;
     this.ingestApiKey = opts.ingestApiKey?.trim() || void 0;
@@ -49,9 +49,9 @@ var BcpClient = class {
     }
     return h;
   }
-  /** Fetch latest entitlements from GET /api/entitlements/:tenant/:product */
+  /** Fetch latest entitlements from GET /api/entitlements/:subscriber/:product */
   async refresh() {
-    const url = `${this.baseUrl}/api/entitlements/${encodeURIComponent(this.tenantId)}/${encodeURIComponent(this.productId)}`;
+    const url = `${this.baseUrl}/api/entitlements/${encodeURIComponent(this.subscriberId)}/${encodeURIComponent(this.productId)}`;
     const res = await this.fetchImpl(url);
     if (!res.ok) {
       throw new Error(`BcpClient.refresh failed: ${res.status} ${res.statusText}`);
@@ -112,7 +112,7 @@ var BcpClient = class {
     return new Date(lic.validTo).getTime() < now;
   }
   canAddUser() {
-    const seats = this.entitlement?.tenant?.seats ?? 0;
+    const seats = this.entitlement?.subscriber?.seats ?? 0;
     const maxUsers = this.getLimit("users");
     if (maxUsers === void 0) return true;
     return seats < maxUsers;
@@ -122,14 +122,14 @@ var BcpClient = class {
     if (!Number.isFinite(end)) return 0;
     return Math.max(0, Math.ceil((end - Date.now()) / (24 * 60 * 60 * 1e3)));
   }
-  /** POST /api/usage/report — metered usage for this tenant/product */
+  /** POST /api/usage/report — metered usage for this subscriber/product */
   async reportUsage(body) {
     const url = `${this.baseUrl}/api/usage/report`;
     const res = await this.fetchImpl(url, {
       method: "POST",
       headers: this.ingestHeaders(),
       body: JSON.stringify({
-        tenantId: this.tenantId,
+        subscriberId: this.subscriberId,
         productId: this.productId,
         ...body
       })
@@ -139,14 +139,14 @@ var BcpClient = class {
     }
     return res.json();
   }
-  /** POST /api/runtime-flags/evaluate — rollout flags for this tenant (and product scope when set) */
+  /** POST /api/runtime-flags/evaluate — rollout flags for this subscriber (and product scope when set) */
   async evaluateRuntimeFlags(opts) {
     const url = `${this.baseUrl}/api/runtime-flags/evaluate`;
     const res = await this.fetchImpl(url, {
       method: "POST",
       headers: this.ingestHeaders(),
       body: JSON.stringify({
-        tenantId: this.tenantId,
+        subscriberId: this.subscriberId,
         productId: this.productId,
         environment: opts?.environment ?? null,
         flagKeys: opts?.flagKeys

@@ -63,22 +63,22 @@ const filteredProductOverview = computed(
 )
 const filteredTenants = computed(
   () =>
-    data.value?.tenants.filter((tenant) =>
+    data.value?.tenants.filter((subscriber) =>
       matches([
-        tenant.name,
-        tenant.slug,
-        tenant.industry,
-        tenant.planName,
-        tenant.planSummary,
-        tenant.status,
-        tenant.country,
-        tenant.email,
-        tenant.contactName,
-        ...tenant.subscribedProducts,
+        subscriber.name,
+        subscriber.slug,
+        subscriber.industry,
+        subscriber.planName,
+        subscriber.planSummary,
+        subscriber.status,
+        subscriber.country,
+        subscriber.email,
+        subscriber.contactName,
+        ...subscriber.subscribedProducts,
       ]),
     ) ?? [],
 )
-const filteredLicenses = computed(() => data.value?.licenses.filter((license) => matches([license.licenseKey, license.tenantName, license.productName, license.mode, license.status])) ?? [])
+const filteredLicenses = computed(() => data.value?.licenses.filter((license) => matches([license.licenseKey, license.subscriberName, license.productName, license.mode, license.status])) ?? [])
 const filteredActivations = computed(
   () =>
     data.value?.activations.filter((activation) =>
@@ -89,7 +89,7 @@ const filteredActivations = computed(
         activation.installationId,
         activation.licenseKey,
         activation.licenseId,
-        activation.tenantName,
+        activation.subscriberName,
         activation.productName,
         activation.bindingLabel,
         activation.activationType,
@@ -100,13 +100,13 @@ const filteredActivations = computed(
 const filteredUsage = computed(
   () =>
     data.value?.usage.filter((usage) =>
-      matches([usage.tenantName, usage.productName, usage.metric, usage.metricLabel, usage.period, usage.status]),
+      matches([usage.subscriberName, usage.productName, usage.metric, usage.metricLabel, usage.period, usage.status]),
     ) ?? [],
 )
 const filteredEvents = computed(
   () =>
     data.value?.billingEvents.filter((event) =>
-      matches([event.tenantName, event.provider, event.eventType, event.currency, event.status]),
+      matches([event.subscriberName, event.provider, event.eventType, event.currency, event.status]),
     ) ?? [],
 )
 const filteredActivityFeed = computed(
@@ -135,7 +135,7 @@ const kpiCards = computed<SummaryCard[]>(() => {
   const bh = data.value?.businessHealth
   if (!bh) {
     return [
-      { label: 'Customers', value: '—', hint: 'Customers on the platform', icon: Users },
+      { label: 'Subscribers', value: '—', hint: 'Subscribers on the platform', icon: Users },
       { label: 'MRR', value: '—', hint: 'Monthly recurring revenue', icon: DollarSign, variant: 'revenue' },
       { label: 'Active subs', value: '—', hint: 'Active + trialing', icon: CreditCard },
       { label: 'Expiring (30d)', value: '—', hint: 'Licenses in renewal window', icon: Zap, variant: 'risk' },
@@ -144,9 +144,9 @@ const kpiCards = computed<SummaryCard[]>(() => {
 
   return [
     {
-      label: 'Customers',
-      value: String(bh.totalCustomers),
-      hint: `${bh.trialTenants} trial customer${bh.trialTenants === 1 ? '' : 's'} · ${bh.trialingSubscriptions} trialing sub${bh.trialingSubscriptions === 1 ? '' : 's'}`,
+      label: 'Subscribers',
+      value: String(bh.totalSubscribers),
+      hint: `${bh.trialTenants} trial subscriber${bh.trialTenants === 1 ? '' : 's'} · ${bh.trialingSubscriptions} trialing sub${bh.trialingSubscriptions === 1 ? '' : 's'}`,
       icon: Users,
     },
     {
@@ -181,7 +181,7 @@ const heroPulse = computed(() => {
 
   return [
     { label: 'Products', value: s.products },
-    { label: 'Customers', value: bh.totalCustomers },
+    { label: 'Subscribers', value: bh.totalSubscribers },
     { label: 'Active subs', value: bh.activeSubscriptions },
     { label: 'Expiring 30d', value: s.expiringSoon },
   ]
@@ -300,7 +300,7 @@ const trendLabel = (t: 'up' | 'flat' | 'down') => {
                   </div>
                   <div class="max-w-3xl space-y-3">
                     <h2 class="text-3xl font-semibold tracking-tight text-foreground lg:text-4xl">
-                      Minimal operating view for customers, subscriptions, revenue, and risk
+                      Minimal operating view for subscribers, subscriptions, revenue, and risk
                     </h2>
                     <p class="max-w-2xl text-sm leading-7 text-muted-foreground lg:text-base">
                       Keep an eye on the few metrics that matter most. Everything else lives in the dedicated pages.
@@ -314,10 +314,10 @@ const trendLabel = (t: 'up' | 'flat' | 'down') => {
                     Refresh
                   </Button>
                   <NuxtLink
-                    to="/customers"
+                    to="/subscribers"
                     class="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border/70 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                   >
-                    Customers
+                    Subscribers
                     <ArrowUpRight class="size-4" />
                   </NuxtLink>
                 </div>
@@ -412,7 +412,7 @@ const trendLabel = (t: 'up' | 'flat' | 'down') => {
             <div class="mt-5 grid gap-3">
               <NuxtLink
                 v-for="item in [
-                  { label: 'Customers', href: '/customers', description: 'Manage the customer registry.' },
+                  { label: 'Subscribers', href: '/subscribers', description: 'Manage the subscriber registry.' },
                   { label: 'Subscriptions', href: '/subscriptions', description: 'Check renewals and contract state.' },
                   { label: 'Licenses', href: '/licenses', description: 'Review expiry and activations.' },
                   { label: 'Usage', href: '/usage', description: 'Inspect limits and overages.' },

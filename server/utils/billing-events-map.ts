@@ -4,8 +4,8 @@ export type BillingEventListItem = {
   id: string
   provider: string
   eventType: string
-  tenantId: string
-  tenantName: string
+  subscriberId: string
+  subscriberName: string
   subscriptionId: string | null
   subscriptionLabel: string | null
   status: string
@@ -26,15 +26,15 @@ export type BillingEventDetail = BillingEventListItem & {
 
 export function mapBillingEventRow(
   row: BillingEventRow,
-  tenantName: string,
+  subscriberName: string,
   subscriptionLabel: string | null,
 ): BillingEventListItem {
   return {
     id: row.id,
     provider: row.provider,
     eventType: row.eventType,
-    tenantId: row.tenantId,
-    tenantName,
+    subscriberId: row.subscriberId,
+    subscriberName,
     subscriptionId: row.subscriptionId,
     subscriptionLabel,
     status: row.processingStatus,
@@ -48,11 +48,11 @@ export function mapBillingEventRow(
 
 export function mapBillingEventDetail(
   row: BillingEventRow,
-  tenantName: string,
+  subscriberName: string,
   subscriptionLabel: string | null,
 ): BillingEventDetail {
   return {
-    ...mapBillingEventRow(row, tenantName, subscriptionLabel),
+    ...mapBillingEventRow(row, subscriberName, subscriptionLabel),
     payloadJson: row.payloadJson,
     normalizedJson: row.normalizedJson,
     processingLogsJson: row.processingLogsJson,

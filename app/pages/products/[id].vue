@@ -155,7 +155,7 @@ type ProductDetail = {
     usageTrackingEnabled: boolean
     extraDetails: string
     planCount: number
-    tenantCount: number
+    subscriberCount: number
     createdAt: string
     updatedAt: string
   }
@@ -337,7 +337,7 @@ const FEATURE_CATEGORY_ORDER = [
   'core',
   'commerce',
   'inventory',
-  'customers',
+  'subscribers',
   'reports',
   'integrations',
   'ai',
@@ -1419,10 +1419,10 @@ function categoryLabel(c: string) {
                     </div>
                     <div>
                       <dt class="text-muted-foreground">
-                        Customers using
+                        Subscribers using
                       </dt>
                       <dd class="font-medium tabular-nums">
-                        {{ data.summary.tenantCount }}
+                        {{ data.summary.subscriberCount }}
                       </dd>
                     </div>
                     <div>

@@ -13,7 +13,7 @@ export const FEATURE_CATEGORY_ORDER = [
   'core',
   'commerce',
   'inventory',
-  'customers',
+  'subscribers',
   'reports',
   'integrations',
   'ai',

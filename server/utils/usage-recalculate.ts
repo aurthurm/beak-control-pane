@@ -3,7 +3,7 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import { entitlementsTable, plansTable, subscriptionsTable, usageRecordsTable } from '../db/schema'
 import { insertAuditLog } from './audit-log'
 import { notifyUsageAuditWebhook } from './audit-webhook'
-import { recomputeEntitlementForTenantProduct } from './entitlement-by-product'
+import { recomputeEntitlementForSubscriberProduct } from './entitlement-by-product'
 import { parseEntitlementLimitMap } from './entitlement-limits'
 import { isSubscriptionBillingActive } from './products'
 import { getLimitFromEntitlementPayload } from './entitlement-limits'
@@ -60,7 +60,7 @@ export async function recalculateAllUsageRecords(
     if (!productId) {
       continue
     }
-    const key = sub.tenantId
+    const key = sub.subscriberId
     const set = activeProductsByTenant.get(key) ?? new Set<string>()
     set.add(productId)
     activeProductsByTenant.set(key, set)
@@ -73,11 +73,11 @@ export async function recalculateAllUsageRecords(
     entitlementProductsByTenantMetric.clear()
 
     for (const e of entries) {
-      const key = `${e.tenantId}\t${e.productId}`
+      const key = `${e.subscriberId}\t${e.productId}`
       entByTenantProduct.set(key, e)
       const limits = parseEntitlementLimitMap(e.payloadJson)
       for (const metric of Object.keys(limits)) {
-        const metricKey = `${e.tenantId}\t${metric}`
+        const metricKey = `${e.subscriberId}\t${metric}`
         const set = entitlementProductsByTenantMetric.get(metricKey) ?? new Set<string>()
         set.add(e.productId)
         entitlementProductsByTenantMetric.set(metricKey, set)
@@ -88,9 +88,9 @@ export async function recalculateAllUsageRecords(
   rebuildEntitlementIndexes(entRows)
 
   const missingEntitlementPairs = new Set<string>()
-  for (const [tenantId, products] of activeProductsByTenant.entries()) {
+  for (const [subscriberId, products] of activeProductsByTenant.entries()) {
     for (const productId of products) {
-      const key = `${tenantId}\t${productId}`
+      const key = `${subscriberId}\t${productId}`
       if (!entByTenantProduct.has(key)) {
         missingEntitlementPairs.add(key)
       }
@@ -99,9 +99,9 @@ export async function recalculateAllUsageRecords(
 
   if (missingEntitlementPairs.size > 0) {
     for (const key of missingEntitlementPairs) {
-      const [tenantId, productId] = key.split('\t')
-      if (tenantId && productId) {
-        await recomputeEntitlementForTenantProduct(db, tenantId, productId)
+      const [subscriberId, productId] = key.split('\t')
+      if (subscriberId && productId) {
+        await recomputeEntitlementForSubscriberProduct(db, subscriberId, productId)
       }
     }
 
@@ -117,19 +117,19 @@ export async function recalculateAllUsageRecords(
     const existingProductId = row.productId?.trim() || null
     let productId = existingProductId
     if (!productId) {
-      const metricKey = `${row.tenantId}\t${row.metric}`
+      const metricKey = `${row.subscriberId}\t${row.metric}`
       const entitlementMatches = entitlementProductsByTenantMetric.get(metricKey)
       if (entitlementMatches?.size === 1) {
         productId = [...entitlementMatches][0] ?? null
       } else if (!entitlementMatches?.size) {
-        const activeProducts = activeProductsByTenant.get(row.tenantId)
+        const activeProducts = activeProductsByTenant.get(row.subscriberId)
         if (activeProducts?.size === 1) {
           productId = [...activeProducts][0] ?? null
         }
       }
     }
 
-    const ent = productId ? entByTenantProduct.get(`${row.tenantId}\t${productId}`) : undefined
+    const ent = productId ? entByTenantProduct.get(`${row.subscriberId}\t${productId}`) : undefined
     let limitValue = row.limitValue
     if (ent?.payloadJson) {
       const fromEnt = getLimitFromEntitlementPayload(ent.payloadJson, row.metric)
@@ -178,7 +178,7 @@ export async function recalculateAllUsageRecords(
         productId,
       }
       await insertAuditLog(db, {
-        tenantId: row.tenantId,
+        subscriberId: row.subscriberId,
         actor: 'usage.pipeline',
         action,
         resourceType: 'usage_record',
@@ -187,7 +187,7 @@ export async function recalculateAllUsageRecords(
       })
       notifyUsageAuditWebhook({
         action,
-        tenantId: row.tenantId,
+        subscriberId: row.subscriberId,
         resourceId: row.id,
         details,
       })

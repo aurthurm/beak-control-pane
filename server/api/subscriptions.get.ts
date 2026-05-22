@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { bootstrapDatabase, getDatabaseClient } from '../db/bootstrap'
-import { plansTable, productsTable, subscriptionsTable, tenantsTable } from '../db/schema'
+import { plansTable, productsTable, subscriptionsTable, subscribersTable } from '../db/schema'
 import { subscriptionListItem } from '../utils/subscriptions'
 import { getStaffOrganizationId } from '../utils/organizations'
 import { requireStaffApiWhenEnforced } from '../utils/auth-guards'
@@ -23,10 +23,10 @@ export default defineEventHandler(async (event) => {
 
   const tenants = await db
     .select()
-    .from(tenantsTable)
-    .where(eq(tenantsTable.organizationId, organizationId))
-    .orderBy(desc(tenantsTable.createdAt))
-  const tenantIds = tenants.map((t) => t.id)
+    .from(subscribersTable)
+    .where(eq(subscribersTable.organizationId, organizationId))
+    .orderBy(desc(subscribersTable.createdAt))
+  const subscriberIds = tenants.map((t) => t.id)
 
   const plans = productIds.length
     ? await db
@@ -36,8 +36,8 @@ export default defineEventHandler(async (event) => {
         .orderBy(desc(plansTable.createdAt))
     : []
 
-  const subscriptions = tenantIds.length
-    ? await db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.tenantId, tenantIds))
+  const subscriptions = subscriberIds.length
+    ? await db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.subscriberId, subscriberIds))
     : []
 
   const planMap = new Map(plans.map((p) => [p.id, p]))
@@ -47,8 +47,8 @@ export default defineEventHandler(async (event) => {
   const list = subscriptions.map((sub) => {
     const plan = planMap.get(sub.planId)
     const product = plan ? productMap.get(plan.productId) : undefined
-    const tenant = tenantMap.get(sub.tenantId)
-    return subscriptionListItem(sub, plan, product?.name ?? '', product?.id ?? plan?.productId ?? '', tenant)
+    const subscriber = tenantMap.get(sub.subscriberId)
+    return subscriptionListItem(sub, plan, product?.name ?? '', product?.id ?? plan?.productId ?? '', subscriber)
   })
 
   return {

@@ -8,12 +8,12 @@ import {
   plansTable,
   productsTable,
   subscriptionsTable,
-  tenantsTable,
+  subscribersTable,
   usageRecordsTable,
 } from '../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
 import { parseEntitlementLimitMap } from '../../utils/entitlement-limits'
-import { recomputeEntitlementForTenantProduct } from '../../utils/entitlement-by-product'
+import { recomputeEntitlementForSubscriberProduct } from '../../utils/entitlement-by-product'
 import { requireIngestSecretOrStaffApi } from '../../utils/ingest-auth'
 import { bumpMetric } from '../../utils/metrics-store'
 import { isSubscriptionBillingActive } from '../../utils/products'
@@ -21,7 +21,7 @@ import { tryStripeUsageRecord } from '../../utils/stripe-usage-sync'
 import { recalculateAllUsageRecords } from '../../utils/usage-recalculate'
 
 type Body = {
-  tenantId?: string
+  subscriberId?: string
   /** When set, usage is scoped to this product; must match the license's product when licenseKey is used. */
   productId?: string | null
   /** Backward-compatible alias for product limit keys. */
@@ -33,7 +33,7 @@ type Body = {
   period?: string
   periodKey?: string
   source?: string
-  /** Resolve tenant/product from an online license key */
+  /** Resolve subscriber/product from an online license key */
   licenseKey?: string
   /** After ingest, run full usage recalculation (default true) */
   recalculate?: boolean
@@ -46,13 +46,13 @@ function monthKeyNow() {
 
 async function resolveUsageProductId(
   db: LibSQLDatabase<any>,
-  tenantId: string,
+  subscriberId: string,
   metric: string,
 ): Promise<string | null> {
   const entitlementRows = await db
     .select({ productId: entitlementsTable.productId, payloadJson: entitlementsTable.payloadJson })
     .from(entitlementsTable)
-    .where(eq(entitlementsTable.tenantId, tenantId))
+    .where(eq(entitlementsTable.subscriberId, subscriberId))
 
   const entitlementMatches = [...new Set(
     entitlementRows
@@ -75,7 +75,7 @@ async function resolveUsageProductId(
     .select({ status: subscriptionsTable.status, productId: plansTable.productId })
     .from(subscriptionsTable)
     .innerJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
-    .where(eq(subscriptionsTable.tenantId, tenantId))
+    .where(eq(subscriptionsTable.subscriberId, subscriberId))
 
   const activeProducts = [...new Set(activeSubscriptions.filter((row) => isSubscriptionBillingActive(row.status)).map((row) => row.productId))]
 
@@ -86,7 +86,7 @@ async function resolveUsageProductId(
   if (activeProducts.length > 1) {
     throw createError({
       statusCode: 400,
-      statusMessage: `Multiple active products found for tenant ${tenantId}; send productId explicitly`,
+      statusMessage: `Multiple active products found for subscriber ${subscriberId}; send productId explicitly`,
     })
   }
 
@@ -111,7 +111,7 @@ export default defineEventHandler(async (event) => {
   await bootstrapDatabase(client)
   const db = drizzle(client)
 
-  let tenantId = body.tenantId?.trim() ?? ''
+  let subscriberId = body.subscriberId?.trim() ?? ''
   let productId = body.productId?.trim() || null
 
   const licenseKey = body.licenseKey?.trim()
@@ -120,29 +120,29 @@ export default defineEventHandler(async (event) => {
     if (!lic) {
       throw createError({ statusCode: 404, statusMessage: 'License not found for licenseKey' })
     }
-    if (tenantId && tenantId !== lic.tenantId) {
-      throw createError({ statusCode: 400, statusMessage: 'tenantId does not match license' })
+    if (subscriberId && subscriberId !== lic.subscriberId) {
+      throw createError({ statusCode: 400, statusMessage: 'subscriberId does not match license' })
     }
-    tenantId = lic.tenantId
+    subscriberId = lic.subscriberId
     if (productId && productId !== lic.productId) {
       throw createError({ statusCode: 400, statusMessage: 'productId does not match license' })
     }
     productId = lic.productId
   }
 
-  if (!tenantId) {
-    throw createError({ statusCode: 400, statusMessage: 'tenantId (or licenseKey) is required' })
+  if (!subscriberId) {
+    throw createError({ statusCode: 400, statusMessage: 'subscriberId (or licenseKey) is required' })
   }
   if (!productId) {
-    productId = await resolveUsageProductId(db, tenantId, metric)
+    productId = await resolveUsageProductId(db, subscriberId, metric)
   }
   if (!productId) {
     throw createError({ statusCode: 400, statusMessage: 'productId (or licenseKey) is required' })
   }
 
-  const [tenant] = await db.select({ id: tenantsTable.id }).from(tenantsTable).where(eq(tenantsTable.id, tenantId))
-  if (!tenant) {
-    throw createError({ statusCode: 404, statusMessage: 'Tenant not found' })
+  const [subscriber] = await db.select({ id: subscribersTable.id }).from(subscribersTable).where(eq(subscribersTable.id, subscriberId))
+  if (!subscriber) {
+    throw createError({ statusCode: 404, statusMessage: 'Subscriber not found' })
   }
 
   const [p] = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.id, productId))
@@ -159,17 +159,17 @@ export default defineEventHandler(async (event) => {
     await db
       .select()
       .from(entitlementsTable)
-      .where(and(eq(entitlementsTable.tenantId, tenantId), eq(entitlementsTable.productId, productId)))
+      .where(and(eq(entitlementsTable.subscriberId, subscriberId), eq(entitlementsTable.productId, productId)))
       .limit(1)
   )[0]
 
   if (!entitlement) {
-    await recomputeEntitlementForTenantProduct(db, tenantId, productId)
+    await recomputeEntitlementForSubscriberProduct(db, subscriberId, productId)
     entitlement = (
       await db
         .select()
         .from(entitlementsTable)
-        .where(and(eq(entitlementsTable.tenantId, tenantId), eq(entitlementsTable.productId, productId)))
+        .where(and(eq(entitlementsTable.subscriberId, subscriberId), eq(entitlementsTable.productId, productId)))
         .limit(1)
     )[0]
   }
@@ -177,17 +177,17 @@ export default defineEventHandler(async (event) => {
   if (!entitlement) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'No entitlement limits found for this tenant and product',
+      statusMessage: 'No entitlement limits found for this subscriber and product',
     })
   }
 
   if (!Object.prototype.hasOwnProperty.call(parseEntitlementLimitMap(entitlement.payloadJson), metric)) {
-    await recomputeEntitlementForTenantProduct(db, tenantId, productId)
+    await recomputeEntitlementForSubscriberProduct(db, subscriberId, productId)
     entitlement = (
       await db
         .select()
         .from(entitlementsTable)
-        .where(and(eq(entitlementsTable.tenantId, tenantId), eq(entitlementsTable.productId, productId)))
+        .where(and(eq(entitlementsTable.subscriberId, subscriberId), eq(entitlementsTable.productId, productId)))
         .limit(1)
     )[0]
   }
@@ -206,7 +206,7 @@ export default defineEventHandler(async (event) => {
     .from(usageRecordsTable)
     .where(
       and(
-        eq(usageRecordsTable.tenantId, tenantId),
+        eq(usageRecordsTable.subscriberId, subscriberId),
         eq(usageRecordsTable.metric, metric),
         eq(usageRecordsTable.periodKey, periodKey),
       ),
@@ -240,7 +240,7 @@ export default defineEventHandler(async (event) => {
     const id = `ur_${randomUUID().replace(/-/g, '').slice(0, 12)}`
     await db.insert(usageRecordsTable).values({
       id,
-      tenantId,
+      subscriberId,
       productId: productKey,
       metric,
       value: nextValue,
@@ -259,16 +259,16 @@ export default defineEventHandler(async (event) => {
   const recalc = doRecalc ? await recalculateAllUsageRecords(db) : null
 
   void tryStripeUsageRecord(db, {
-    tenantId,
+    subscriberId,
     quantity: nextValue,
-    idempotencyKey: `usage:${tenantId}:${metric}:${periodKey}:${nextValue}`,
+    idempotencyKey: `usage:${subscriberId}:${metric}:${periodKey}:${nextValue}`,
   }).catch(() => {
     /* optional billing bridge */
   })
 
   return {
     ok: true,
-    tenantId,
+    subscriberId,
     productId: productKey,
     metric,
     limitKey: metric,

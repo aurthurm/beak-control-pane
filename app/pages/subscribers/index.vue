@@ -24,8 +24,8 @@ import { ChevronRight, Plus, RefreshCw, Search } from 'lucide-vue-next'
 definePageMeta({ layout: 'console' })
 
 useSeoMeta({
-  title: `${site.brand.name} | Customers`,
-  description: 'Customer registry across the platform.',
+  title: `${site.brand.name} | Subscribers`,
+  description: 'Subscriber registry across the platform.',
 })
 
 const router = useRouter()
@@ -38,19 +38,19 @@ const filtered = computed(() => {
   const rows = data.value?.tenants ?? []
   const q = query.value
   if (!q) return rows
-  return rows.filter((tenant) => {
+  return rows.filter((subscriber) => {
     const hay = [
-      tenant.name,
-      tenant.slug,
-      tenant.legalName,
-      tenant.status,
-      tenant.planSummary,
-      tenant.billingStatus,
-      tenant.licenseStatus,
-      tenant.country,
-      tenant.contactName,
-      tenant.email,
-      tenant.subscribedProducts.join(' '),
+      subscriber.name,
+      subscriber.slug,
+      subscriber.legalName,
+      subscriber.status,
+      subscriber.planSummary,
+      subscriber.billingStatus,
+      subscriber.licenseStatus,
+      subscriber.country,
+      subscriber.contactName,
+      subscriber.email,
+      subscriber.subscribedProducts.join(' '),
     ]
       .join(' ')
       .toLowerCase()
@@ -61,9 +61,9 @@ const filtered = computed(() => {
 const metrics = computed(() => {
   const rows = filtered.value
   return [
-    { label: 'Customers', value: rows.length, detail: 'Visible in the current view' },
-    { label: 'Active', value: rows.filter((tenant) => tenant.status === 'active').length, detail: 'Live customer accounts' },
-    { label: 'With subscriptions', value: rows.filter((tenant) => tenant.subscribedProducts.length > 0).length, detail: 'Customers already in use' },
+    { label: 'Subscribers', value: rows.length, detail: 'Visible in the current view' },
+    { label: 'Active', value: rows.filter((subscriber) => subscriber.status === 'active').length, detail: 'Live subscriber accounts' },
+    { label: 'With subscriptions', value: rows.filter((subscriber) => subscriber.subscribedProducts.length > 0).length, detail: 'Subscribers already in use' },
   ]
 })
 
@@ -117,7 +117,7 @@ const submitCreate = async () => {
   saving.value = 'create'
   actionError.value = ''
   try {
-    await $fetch('/api/tenants', {
+    await $fetch('/api/subscribers', {
       method: 'POST',
       body: {
         slug: form.value.slug || undefined,
@@ -139,19 +139,19 @@ const submitCreate = async () => {
     createOpen.value = false
     await refresh()
   } catch (e: unknown) {
-    actionError.value = e instanceof Error ? e.message : 'Could not create customer'
+    actionError.value = e instanceof Error ? e.message : 'Could not create subscriber'
   } finally {
     saving.value = ''
   }
 }
 
 const goToTenantDetail = (id: string) => {
-  void router.push(`/customers/${encodeURIComponent(id)}`)
+  void router.push(`/subscribers/${encodeURIComponent(id)}`)
 }
 
 const tenantFormFields = () => [
-  { key: 'slug' as const, label: 'Customer code (key)', placeholder: 'auto from name if empty' },
-  { key: 'name' as const, label: 'Display name', placeholder: 'Customer display name' },
+  { key: 'slug' as const, label: 'Subscriber code (key)', placeholder: 'auto from name if empty' },
+  { key: 'name' as const, label: 'Display name', placeholder: 'Subscriber display name' },
   { key: 'legalName' as const, label: 'Legal / business name', placeholder: 'Registered legal name' },
   { key: 'contactName' as const, label: 'Owner / admin contact', placeholder: 'Primary contact name' },
   { key: 'email' as const, label: 'Email', placeholder: 'billing@example.com' },
@@ -169,13 +169,13 @@ const tenantFormFields = () => [
     <ConsolePageHeader
       :breadcrumbs="[
         { label: site.brand.name, to: '/' },
-        { label: 'Customers', to: '/customers' },
+        { label: 'Subscribers', to: '/subscribers' },
       ]"
     >
       <template #actions>
         <Button size="sm" @click="openCreate">
           <Plus class="size-4" />
-          Create customer
+          Create subscriber
         </Button>
         <Button variant="outline" size="sm" :disabled="pending" @click="refresh">
           <RefreshCw class="size-4" :class="pending ? 'animate-spin' : ''" />
@@ -204,14 +204,14 @@ const tenantFormFields = () => [
       <Card class="overflow-hidden rounded-3xl border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
         <CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div class="space-y-1">
-            <CardTitle>Customers</CardTitle>
+            <CardTitle>Subscribers</CardTitle>
             <CardDescription>
-              Open a row for the full customer hub — subscriptions, entitlements, usage, billing, licenses, and edits.
+              Open a row for the full subscriber hub — subscriptions, entitlements, usage, billing, licenses, and edits.
             </CardDescription>
           </div>
           <div class="relative w-full sm:max-w-xs">
             <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="search" class="pl-9" placeholder="Search customers, codes, contacts, products…" />
+            <Input v-model="search" class="pl-9" placeholder="Search subscribers, codes, contacts, products…" />
           </div>
         </CardHeader>
         <CardContent class="p-0">
@@ -219,7 +219,7 @@ const tenantFormFields = () => [
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Subscriber</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Products</TableHead>
@@ -234,44 +234,44 @@ const tenantFormFields = () => [
               </TableHeader>
               <TableBody>
                 <TableRow
-                  v-for="tenant in filtered"
-                  :key="tenant.id"
+                  v-for="subscriber in filtered"
+                  :key="subscriber.id"
                   class="cursor-pointer transition-colors hover:bg-muted/40"
-                  @click="goToTenantDetail(tenant.id)"
+                  @click="goToTenantDetail(subscriber.id)"
                 >
                   <TableCell>
-                    <div class="font-medium">{{ tenant.name }}</div>
-                    <div v-if="tenant.legalName" class="text-xs text-muted-foreground">{{ tenant.legalName }}</div>
+                    <div class="font-medium">{{ subscriber.name }}</div>
+                    <div v-if="subscriber.legalName" class="text-xs text-muted-foreground">{{ subscriber.legalName }}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{{ tenant.slug }}</Badge>
+                    <Badge variant="secondary">{{ subscriber.slug }}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge class="capitalize" :variant="statusVariant(tenant.status)">{{ tenant.status }}</Badge>
+                    <Badge class="capitalize" :variant="statusVariant(subscriber.status)">{{ subscriber.status }}</Badge>
                   </TableCell>
                   <TableCell>
-                    <span class="text-sm">{{ tenant.subscribedProducts.length ? tenant.subscribedProducts.join(', ') : '—' }}</span>
+                    <span class="text-sm">{{ subscriber.subscribedProducts.length ? subscriber.subscribedProducts.join(', ') : '—' }}</span>
                   </TableCell>
-                  <TableCell class="max-w-[200px] truncate text-sm" :title="tenant.planSummary">
-                    {{ tenant.planSummary }}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" class="font-normal capitalize">{{ tenant.billingStatus }}</Badge>
+                  <TableCell class="max-w-[200px] truncate text-sm" :title="subscriber.planSummary">
+                    {{ subscriber.planSummary }}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" class="font-normal capitalize">{{ tenant.licenseStatus }}</Badge>
+                    <Badge variant="outline" class="font-normal capitalize">{{ subscriber.billingStatus }}</Badge>
                   </TableCell>
-                  <TableCell class="text-sm">{{ tenant.country || '—' }}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" class="font-normal capitalize">{{ subscriber.licenseStatus }}</Badge>
+                  </TableCell>
+                  <TableCell class="text-sm">{{ subscriber.country || '—' }}</TableCell>
                   <TableCell class="whitespace-nowrap text-sm text-muted-foreground">
-                    {{ formatDate(tenant.createdAt) }}
+                    {{ formatDate(subscriber.createdAt) }}
                   </TableCell>
                   <TableCell class="max-w-[160px]">
-                    <div class="truncate text-sm font-medium">{{ tenant.contactName || '—' }}</div>
-                    <div class="truncate text-xs text-muted-foreground">{{ tenant.email || '—' }}</div>
+                    <div class="truncate text-sm font-medium">{{ subscriber.contactName || '—' }}</div>
+                    <div class="truncate text-xs text-muted-foreground">{{ subscriber.email || '—' }}</div>
                   </TableCell>
                   <TableCell class="text-right text-muted-foreground" @click.stop>
                     <ChevronRight class="ml-auto size-4" aria-hidden="true" />
-                    <span class="sr-only">Open customer</span>
+                    <span class="sr-only">Open subscriber</span>
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -285,8 +285,8 @@ const tenantFormFields = () => [
     <Dialog v-model:open="createOpen">
       <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create customer</DialogTitle>
-          <DialogDescription>Add a customer manually to the registry. You can attach subscriptions afterward.</DialogDescription>
+          <DialogTitle>Create subscriber</DialogTitle>
+          <DialogDescription>Add a subscriber manually to the registry. You can attach subscriptions afterward.</DialogDescription>
         </DialogHeader>
         <div class="grid gap-3 py-2">
           <div v-for="field in tenantFormFields()" :key="field.key" class="space-y-1.5">
@@ -319,7 +319,7 @@ const tenantFormFields = () => [
               v-model="form.internalNotes"
               rows="3"
               class="min-h-[80px]"
-              placeholder="Internal comments (not shown to the customer)"
+              placeholder="Internal comments (not shown to the subscriber)"
             />
           </div>
         </div>

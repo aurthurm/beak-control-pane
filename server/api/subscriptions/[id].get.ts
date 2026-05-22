@@ -11,7 +11,7 @@ import {
   plansTable,
   productsTable,
   subscriptionsTable,
-  tenantsTable,
+  subscribersTable,
 } from '../../db/schema'
 import { subscriptionListItem } from '../../utils/subscriptions'
 import { getStaffOrganizationId } from '../../utils/organizations'
@@ -36,11 +36,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Subscription not found' })
   }
 
-  const [tenant] = await db
+  const [subscriber] = await db
     .select()
-    .from(tenantsTable)
-    .where(and(eq(tenantsTable.id, subscription.tenantId), eq(tenantsTable.organizationId, organizationId)))
-  if (!tenant) {
+    .from(subscribersTable)
+    .where(and(eq(subscribersTable.id, subscription.subscriberId), eq(subscribersTable.organizationId, organizationId)))
+  if (!subscriber) {
     throw createError({ statusCode: 404, statusMessage: 'Subscription not found' })
   }
 
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
         .where(and(eq(productsTable.id, productId), eq(productsTable.organizationId, organizationId)))
     : [undefined]
 
-  const listFields = subscriptionListItem(subscription, plan, product?.name ?? '', productId, tenant)
+  const listFields = subscriptionListItem(subscription, plan, product?.name ?? '', productId, subscriber)
 
   const entitlementRows =
     productId === ''
@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
       : await db
           .select()
           .from(entitlementsTable)
-          .where(and(eq(entitlementsTable.tenantId, subscription.tenantId), eq(entitlementsTable.productId, productId)))
+          .where(and(eq(entitlementsTable.subscriberId, subscription.subscriberId), eq(entitlementsTable.productId, productId)))
           .orderBy(desc(entitlementsTable.computedAt))
 
   const featureLinks = plan
@@ -91,7 +91,7 @@ export default defineEventHandler(async (event) => {
       : await db
           .select()
           .from(billingEventsTable)
-          .where(eq(billingEventsTable.tenantId, subscription.tenantId))
+          .where(eq(billingEventsTable.subscriberId, subscription.subscriberId))
           .orderBy(desc(billingEventsTable.occurredAt))
           .limit(25)
 
@@ -114,8 +114,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     subscription: listFields,
-    tenant: tenant
-      ? { id: tenant.id, name: tenant.name, slug: tenant.slug, status: tenant.status }
+    subscriber: subscriber
+      ? { id: subscriber.id, name: subscriber.name, slug: subscriber.slug, status: subscriber.status }
       : null,
     product: product ? { id: product.id, name: product.name, slug: product.slug } : null,
     plan: plan
@@ -159,7 +159,7 @@ export default defineEventHandler(async (event) => {
     })),
     licenses: licenseRows.map((license) => ({
       id: license.id,
-      tenantId: license.tenantId,
+      subscriberId: license.subscriberId,
       productId: license.productId,
       subscriptionId: license.subscriptionId,
       licenseKey: license.licenseKey,

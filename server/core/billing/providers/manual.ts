@@ -11,8 +11,8 @@ export const manualBillingProvider: BillingProvider = {
 
   async createCustomer(input) {
     return {
-      id: `cus_manual_${input.tenantId.slice(0, 12)}`,
-      metadata: { tenantId: input.tenantId },
+      id: `cus_manual_${input.subscriberId.slice(0, 12)}`,
+      metadata: { subscriberId: input.subscriberId },
     }
   },
 

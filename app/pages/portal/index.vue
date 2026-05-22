@@ -11,7 +11,7 @@ const organizationId = computed(() => (typeof route.query.organizationId === 'st
 const { data: summary, pending, error } = usePortalSummary(organizationId)
 
 useSeoMeta({
-  title: 'Customer portal',
+  title: 'Subscriber portal',
 })
 
 const stats = computed(() => {
@@ -21,7 +21,7 @@ const stats = computed(() => {
   }
   return [
     { label: 'Products', value: data.overview.productCount },
-    { label: 'Customers', value: data.overview.tenantCount },
+    { label: 'Subscribers', value: data.overview.subscriberCount },
     { label: 'Subscriptions', value: data.overview.subscriptionCount },
     { label: 'Licenses', value: data.overview.licenseCount },
     { label: 'Usage rows', value: data.overview.usageRecordCount },
@@ -42,7 +42,7 @@ const activeMembershipRole = computed(() => {
 <template>
     <PortalShell
     title="Your account hub"
-    subtitle="Track the current customer, review billing and licensing state, and jump into the parts of the account that need attention."
+    subtitle="Track the current subscriber, review billing and licensing state, and jump into the parts of the account that need attention."
     :summary="summary ?? null"
     :pending="pending"
     :error="error ? 'Unable to load portal data.' : null"
@@ -55,7 +55,7 @@ const activeMembershipRole = computed(() => {
           <CardHeader class="space-y-4 border-b border-border/60 pb-5">
             <div class="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">
-                Active customer
+                Active subscriber
               </Badge>
               <Badge :variant="toneForStatus(summary.activeOrganization?.status ?? '')">
                 {{ summary.activeOrganization?.status || 'unknown' }}
@@ -66,7 +66,7 @@ const activeMembershipRole = computed(() => {
             </div>
             <div class="space-y-1">
               <CardTitle class="text-2xl">
-                {{ summary.activeOrganization?.name || 'Active customer' }}
+                {{ summary.activeOrganization?.name || 'Active subscriber' }}
               </CardTitle>
               <CardDescription>
                 {{ summary.activeOrganization?.slug || summary.activeOrganizationId }}
@@ -117,16 +117,16 @@ const activeMembershipRole = computed(() => {
               Account snapshot
             </CardTitle>
             <CardDescription>
-              Your current customer and membership details.
+              Your current subscriber and membership details.
             </CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
             <div class="space-y-2 rounded-2xl border border-border/70 bg-background/70 p-4">
               <div class="text-sm text-muted-foreground">
-                Active customer
+                Active subscriber
               </div>
               <div class="font-medium">
-                {{ summary.activeOrganization?.name || 'Unknown customer' }}
+                {{ summary.activeOrganization?.name || 'Unknown subscriber' }}
               </div>
               <div class="text-sm text-muted-foreground">
                 Role: {{ activeMembershipRole }}
@@ -141,7 +141,7 @@ const activeMembershipRole = computed(() => {
                 {{ summary.account.memberships.length }}
               </div>
               <div class="text-sm text-muted-foreground">
-                Switch customers from the chips above.
+                Switch subscribers from the chips above.
               </div>
             </div>
 
@@ -156,7 +156,7 @@ const activeMembershipRole = computed(() => {
               Entry points
             </h2>
             <p class="text-sm text-muted-foreground">
-              The main areas customer members usually check first.
+              The main areas subscriber members usually check first.
             </p>
           </div>
         </div>
@@ -205,7 +205,7 @@ const activeMembershipRole = computed(() => {
                     {{ sub.productName }} · {{ sub.planName }}
                   </div>
                   <div class="text-sm text-muted-foreground">
-                    {{ sub.tenantName }} · {{ sub.billingInterval }}
+                    {{ sub.subscriberName }} · {{ sub.billingInterval }}
                   </div>
                 </div>
                 <Badge :variant="toneForStatus(sub.status)">
@@ -240,7 +240,7 @@ const activeMembershipRole = computed(() => {
                     {{ license.productName }}
                   </div>
                   <div class="text-sm text-muted-foreground">
-                    {{ license.tenantName }} · {{ license.mode }}
+                    {{ license.subscriberName }} · {{ license.mode }}
                   </div>
                 </div>
                 <Badge :variant="toneForStatus(license.status)">
@@ -275,7 +275,7 @@ const activeMembershipRole = computed(() => {
                     {{ usage.metricLabel }}
                   </div>
                   <div class="text-sm text-muted-foreground">
-                    {{ usage.tenantName }} · {{ usage.productName }}
+                    {{ usage.subscriberName }} · {{ usage.productName }}
                   </div>
                 </div>
                 <Badge :variant="toneForStatus(usage.uiStatus)">
@@ -296,7 +296,7 @@ const activeMembershipRole = computed(() => {
         <Card class="border-border/70 bg-card/90 shadow-sm">
           <CardHeader class="space-y-2">
             <CardTitle>Entitlements</CardTitle>
-              <CardDescription>What the active customer is entitled to use.</CardDescription>
+              <CardDescription>What the active subscriber is entitled to use.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-3">
             <div
@@ -310,7 +310,7 @@ const activeMembershipRole = computed(() => {
                     {{ entitlement.productName }}
                   </div>
                   <div class="text-sm text-muted-foreground">
-                    {{ entitlement.tenantName }} · {{ entitlement.primarySource }}
+                    {{ entitlement.subscriberName }} · {{ entitlement.primarySource }}
                   </div>
                 </div>
                 <Badge variant="outline">
@@ -334,12 +334,12 @@ const activeMembershipRole = computed(() => {
         <CardHeader>
           <CardTitle>Preparing portal</CardTitle>
           <CardDescription>
-            {{ pending ? 'Loading your account summary…' : 'Customer data could not be loaded.' }}
+            {{ pending ? 'Loading your account summary…' : 'Subscriber data could not be loaded.' }}
           </CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
           <p class="text-sm text-muted-foreground">
-            When data is available, this page shows your customer summary, active subscriptions, license state, usage, and entitlement snapshots.
+            When data is available, this page shows your subscriber summary, active subscriptions, license state, usage, and entitlement snapshots.
           </p>
           <NuxtLink to="/portal/login" class="text-sm font-medium text-primary underline-offset-4 hover:underline">
             Go to sign in

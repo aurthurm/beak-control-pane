@@ -17,11 +17,11 @@ function bumpIssue(payload: Record<string, unknown>, reason: string, issuedBy: s
 }
 
 /**
- * Re-sign active license rows for a tenant/product after entitlement changes.
+ * Re-sign active license rows for a subscriber/product after entitlement changes.
  */
 export async function reissueLicensesForTenantProduct(
   db: LibSQLDatabase<any>,
-  tenantId: string,
+  subscriberId: string,
   productId: string,
   reason: string,
 ): Promise<number> {
@@ -33,7 +33,7 @@ export async function reissueLicensesForTenantProduct(
   const rows = await db
     .select()
     .from(licensesTable)
-    .where(and(eq(licensesTable.tenantId, tenantId), eq(licensesTable.productId, productId), eq(licensesTable.status, 'active')))
+    .where(and(eq(licensesTable.subscriberId, subscriberId), eq(licensesTable.productId, productId), eq(licensesTable.status, 'active')))
 
   let n = 0
   for (const row of rows) {

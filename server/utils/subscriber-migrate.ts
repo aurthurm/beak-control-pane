@@ -1,6 +1,6 @@
 import type { Client } from '@libsql/client'
 
-export async function migrateTenantsTable(client: Client) {
+export async function migrateSubscribersTable(client: Client) {
   const info = await client.execute('PRAGMA table_info(tenants)')
   const nameIdx = info.columns.indexOf('name')
   const columns = new Set(

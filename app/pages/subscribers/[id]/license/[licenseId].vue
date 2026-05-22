@@ -35,31 +35,31 @@ type LicensePatchBody = {
 
 const route = useRoute()
 const router = useRouter()
-const tenantId = computed(() => String(route.params.id ?? ''))
+const subscriberId = computed(() => String(route.params.id ?? ''))
 const licenseId = computed(() => String(route.params.licenseId ?? ''))
 
 const { data, pending, refresh } = await useWorkspaceDashboard()
 
 const license = computed(
-  () => data.value?.licenses.find((l) => l.id === licenseId.value && l.tenantId === tenantId.value) ?? null,
+  () => data.value?.licenses.find((l) => l.id === licenseId.value && l.subscriberId === subscriberId.value) ?? null,
 )
 
 const licenseById = computed(() => data.value?.licenses.find((l) => l.id === licenseId.value) ?? null)
 
 watch(
-  [pending, licenseById, tenantId],
+  [pending, licenseById, subscriberId],
   ([isPending, lic, tid]) => {
     if (isPending || !lic) return
-    if (lic.tenantId !== tid) {
-      void navigateTo(`/customers/${lic.tenantId}/license/${lic.id}`, { replace: true })
+    if (lic.subscriberId !== tid) {
+      void navigateTo(`/subscribers/${lic.subscriberId}/license/${lic.id}`, { replace: true })
     }
   },
   { flush: 'post' },
 )
 
-const tenantName = computed(() => data.value?.tenants.find((t) => t.id === tenantId.value)?.name ?? tenantId.value)
+const subscriberName = computed(() => data.value?.tenants.find((t) => t.id === subscriberId.value)?.name ?? subscriberId.value)
 
-const customerUrl = computed(() => `/customers/${tenantId.value}`)
+const subscriberUrl = computed(() => `/subscribers/${subscriberId.value}`)
 const licensesListUrl = '/licenses'
 
 useSeoMeta({
@@ -312,16 +312,16 @@ async function submitRegisterActivation() {
     <ConsolePageHeader
       :breadcrumbs="[
         { label: site.brand.name, to: '/' },
-        { label: 'Customers', to: '/customers' },
-        { label: tenantName, to: customerUrl },
+        { label: 'Subscribers', to: '/subscribers' },
+        { label: subscriberName, to: subscriberUrl },
         { label: license?.licenseKey ?? licenseId },
       ]"
     >
       <template #actions>
         <Button variant="outline" size="sm" as-child>
-          <NuxtLink :to="customerUrl" class="gap-1">
+          <NuxtLink :to="subscriberUrl" class="gap-1">
             <ArrowLeft class="size-4" />
-            Back to customer
+            Back to subscriber
           </NuxtLink>
         </Button>
         <Button variant="outline" size="sm" as-child>
@@ -355,7 +355,7 @@ async function submitRegisterActivation() {
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0 space-y-1">
           <h1 class="font-mono text-lg font-semibold tracking-tight">{{ license.licenseKey }}</h1>
-          <p class="text-sm text-muted-foreground">{{ license.productName }} · {{ license.tenantName }}</p>
+          <p class="text-sm text-muted-foreground">{{ license.productName }} · {{ license.subscriberName }}</p>
           <p class="font-mono text-xs text-muted-foreground">{{ license.id }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -438,9 +438,9 @@ async function submitRegisterActivation() {
         <TabsContent value="summary" class="mt-0 space-y-4">
           <div class="grid gap-3 sm:grid-cols-2">
             <div class="rounded-2xl border border-border/70 bg-card/80 p-4">
-              <h4 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked customer</h4>
-              <p class="mt-1 font-medium">{{ license.tenantName }}</p>
-              <p class="font-mono text-xs text-muted-foreground">{{ license.tenantId }}</p>
+              <h4 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Linked subscriber</h4>
+              <p class="mt-1 font-medium">{{ license.subscriberName }}</p>
+              <p class="font-mono text-xs text-muted-foreground">{{ license.subscriberId }}</p>
             </div>
             <div class="rounded-2xl border border-border/70 bg-card/80 p-4">
               <h4 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Product &amp; subscription</h4>
@@ -526,7 +526,7 @@ async function submitRegisterActivation() {
               Live activations, heartbeats, and release actions are on the
               <NuxtLink
                 class="text-primary underline-offset-4 hover:underline"
-                :to="{ path: `/customers/${license.tenantId}/license/${license.id}`, query: { tab: 'activations' } }"
+                :to="{ path: `/subscribers/${license.subscriberId}/license/${license.id}`, query: { tab: 'activations' } }"
                 >Activations</NuxtLink
               >
               tab for this license.
@@ -627,7 +627,7 @@ async function submitRegisterActivation() {
               </ul>
             </div>
           </template>
-          <p v-else class="text-sm text-muted-foreground">No computed entitlement row for this customer/product pair.</p>
+          <p v-else class="text-sm text-muted-foreground">No computed entitlement row for this subscriber/product pair.</p>
         </TabsContent>
 
         <TabsContent value="constraints" class="mt-0">

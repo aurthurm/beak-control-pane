@@ -27,7 +27,7 @@ type Body = {
   rolloutPercent?: number
   globallyEnabled?: boolean
   rules?: Record<string, unknown>
-  targetTenantIds?: string[]
+  targetSubscriberIds?: string[]
   environmentValues?: Record<string, string | number | boolean>
   planIds?: string[]
 }
@@ -137,7 +137,7 @@ export default defineEventHandler(async (event) => {
   const now = new Date().toISOString()
   const id = newRuntimeFlagId()
 
-  const targetTenantIds = Array.isArray(body.targetTenantIds) ? body.targetTenantIds.filter(Boolean) : []
+  const targetSubscriberIds = Array.isArray(body.targetSubscriberIds) ? body.targetSubscriberIds.filter(Boolean) : []
   const environmentValues =
     body.environmentValues && typeof body.environmentValues === 'object' ? body.environmentValues : {}
   const rules = body.rules && typeof body.rules === 'object' ? body.rules : {}
@@ -158,7 +158,7 @@ export default defineEventHandler(async (event) => {
     rolloutPercent,
     globallyEnabled: body.globallyEnabled !== false,
     rulesJson: JSON.stringify(rules),
-    targetTenantIdsJson: JSON.stringify(targetTenantIds),
+    targetSubscriberIdsJson: JSON.stringify(targetSubscriberIds),
     environmentValuesJson: JSON.stringify(environmentValues),
     evaluationHistoryJson: '[]',
     expiresAt: '',

@@ -7,7 +7,7 @@ const route = useRoute()
 const invite = computed(() => (typeof route.query.invite === 'string' ? route.query.invite : undefined))
 
 useSeoMeta({
-  title: 'Join customer',
+  title: 'Join subscriber',
 })
 </script>
 

@@ -4,7 +4,7 @@ definePageMeta({ layout: 'console' })
 const route = useRoute()
 const id = String(route.params.id ?? '')
 
-type SubDetail = { subscription: { tenantId: string; id: string } }
+type SubDetail = { subscription: { subscriberId: string; id: string } }
 
 if (!id) {
   await navigateTo('/subscriptions', { replace: true })
@@ -12,7 +12,7 @@ if (!id) {
   const { data, error } = await useAsyncData(`subscription-redirect-${id}`, () => $fetch<SubDetail>(`/api/subscriptions/${id}`))
 
   if (data.value?.subscription) {
-    await navigateTo(`/customers/${data.value.subscription.tenantId}/subscription/${data.value.subscription.id}`, { replace: true })
+    await navigateTo(`/subscribers/${data.value.subscription.subscriberId}/subscription/${data.value.subscription.id}`, { replace: true })
   } else if (error.value || !data.value) {
     await navigateTo('/subscriptions', { replace: true })
   }
@@ -20,5 +20,5 @@ if (!id) {
 </script>
 
 <template>
-  <div class="p-6 text-sm text-muted-foreground">Redirecting to the customer subscription record…</div>
+  <div class="p-6 text-sm text-muted-foreground">Redirecting to the subscriber subscription record…</div>
 </template>

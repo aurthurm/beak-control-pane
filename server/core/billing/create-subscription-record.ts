@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { createError } from 'h3'
 import { eq } from 'drizzle-orm'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-import { plansTable, subscriptionsTable, tenantsTable } from '../../db/schema'
+import { plansTable, subscriptionsTable, subscribersTable } from '../../db/schema'
 import { insertAuditLog } from '../../utils/audit-log'
 import { SUBSCRIPTION_STATUSES, defaultContractEnd, nextRenewalFromPlan, parseAddOns } from '../../utils/subscriptions'
 
 export type CreateSubscriptionRecordInput = {
-  tenantId: string
+  subscriberId: string
   planId: string
   provider: string
   providerRef: string
@@ -33,7 +33,7 @@ export async function createSubscriptionRecord(
   db: LibSQLDatabase<any>,
   body: CreateSubscriptionRecordInput,
 ): Promise<{ id: string }> {
-  const tenantId = body.tenantId.trim()
+  const subscriberId = body.subscriberId.trim()
   const planId = body.planId.trim()
   const provider = body.provider.trim().toLowerCase()
   let providerRef = body.providerRef.trim()
@@ -41,14 +41,14 @@ export async function createSubscriptionRecord(
     providerRef = `contract_${randomUUID().slice(0, 8)}`
   }
 
-  if (!tenantId || !planId || !providerRef) {
-    throw createError({ statusCode: 400, statusMessage: 'tenantId, planId, and providerRef are required' })
+  if (!subscriberId || !planId || !providerRef) {
+    throw createError({ statusCode: 400, statusMessage: 'subscriberId, planId, and providerRef are required' })
   }
 
-  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId))
+  const [subscriber] = await db.select().from(subscribersTable).where(eq(subscribersTable.id, subscriberId))
   const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId))
 
-  if (!tenant || !plan) {
+  if (!subscriber || !plan) {
     throw createError({ statusCode: 404, statusMessage: 'Tenant or plan not found' })
   }
 
@@ -82,7 +82,7 @@ export async function createSubscriptionRecord(
 
   await db.insert(subscriptionsTable).values({
     id,
-    tenantId,
+    subscriberId,
     planId,
     provider,
     providerRef,
@@ -103,7 +103,7 @@ export async function createSubscriptionRecord(
   })
 
   await insertAuditLog(db, {
-    tenantId,
+    subscriberId,
     actor: 'console',
     action: 'subscription.created',
     resourceType: 'subscription',

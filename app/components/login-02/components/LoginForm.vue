@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']
-  /** portal: expect customer; staff: expect platform_admin or support */
+  /** portal: expect subscriber; staff: expect platform_admin or support */
   intent?: 'portal' | 'staff'
 }>()
 
@@ -34,14 +34,14 @@ async function onSubmit(e: Event) {
     })
     const role = res.platformRole
     if (intent.value === 'staff') {
-      if (role === 'customer') {
+      if (role === 'subscriber') {
         await navigateTo('/portal')
         return
       }
       await navigateTo('/')
       return
     }
-    if (role !== 'customer') {
+    if (role !== 'subscriber') {
       await navigateTo('/')
       return
     }
@@ -90,7 +90,7 @@ async function onSubmit(e: Event) {
       </Field>
       <Field v-if="intent === 'portal'">
         <FieldDescription class="text-center">
-          Need a customer account?
+          Need a subscriber account?
           <NuxtLink to="/portal/signup" class="underline underline-offset-4">
             Create one
           </NuxtLink>
@@ -98,9 +98,9 @@ async function onSubmit(e: Event) {
       </Field>
       <Field v-else>
         <FieldDescription class="text-center">
-          Customer portal:
+          Subscriber portal:
           <NuxtLink to="/portal/login" class="underline underline-offset-4">
-            Customer login
+            Subscriber login
           </NuxtLink>
         </FieldDescription>
       </Field>

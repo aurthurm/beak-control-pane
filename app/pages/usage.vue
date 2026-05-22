@@ -41,7 +41,7 @@ definePageMeta({ layout: 'console' })
 
 useSeoMeta({
   title: `${site.brand.name} | Usage`,
-  description: 'Measured usage versus licensed limits across customers and products.',
+  description: 'Measured usage versus licensed limits across subscribers and products.',
 })
 
 const search = ref('')
@@ -98,7 +98,7 @@ const productOptions = computed(() => {
 const tenantOptions = computed(() => {
   const map = new Map<string, string>()
   for (const u of data.value?.usage ?? []) {
-    map.set(u.tenantId, u.tenantName)
+    map.set(u.subscriberId, u.subscriberName)
   }
   return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
 })
@@ -107,7 +107,7 @@ const usageReady = computed(() => (data.value?.usage?.length ?? 0) > 0)
 
 watch(
   [
-    () => route.query.tenant,
+    () => route.query.subscriber,
     () => route.query.product,
     usageReady,
   ],
@@ -116,7 +116,7 @@ watch(
       return
     }
 
-    const rawTenant = route.query.tenant
+    const rawTenant = route.query.subscriber
     const rawProduct = route.query.product
     const tenantQ = typeof rawTenant === 'string' ? rawTenant : Array.isArray(rawTenant) ? rawTenant[0] : undefined
     const productQ = typeof rawProduct === 'string' ? rawProduct : Array.isArray(rawProduct) ? rawProduct[0] : undefined
@@ -141,7 +141,7 @@ const workspaceScopeDescription = computed(() => {
   const parts: string[] = []
   if (tenantFilter.value !== '__all__') {
     const name = tenantOptions.value.find(([id]) => id === tenantFilter.value)?.[1] ?? tenantFilter.value
-    parts.push(`Customer: ${name}`)
+    parts.push(`Subscriber: ${name}`)
   }
   if (productFilter.value !== '__all__') {
     const name = productOptions.value.find(([id]) => id === productFilter.value)?.[1] ?? productFilter.value
@@ -167,7 +167,7 @@ const scopeRows = computed(() => {
     if (productFilter.value !== '__all__' && row.productId !== productFilter.value) {
       return false
     }
-    if (tenantFilter.value !== '__all__' && row.tenantId !== tenantFilter.value) {
+    if (tenantFilter.value !== '__all__' && row.subscriberId !== tenantFilter.value) {
       return false
     }
     if (issuesOnly.value && row.status === 'normal') {
@@ -176,7 +176,7 @@ const scopeRows = computed(() => {
     if (!query.value) {
       return true
     }
-    return [row.metric, row.metricLabel, row.period, row.status, row.tenantName, row.productName, row.source].some((f) =>
+    return [row.metric, row.metricLabel, row.period, row.status, row.subscriberName, row.productName, row.source].some((f) =>
       f.toLowerCase().includes(query.value),
     )
   })
@@ -197,7 +197,7 @@ const rowsForSummary = computed(() => {
     if (productFilter.value !== '__all__' && row.productId !== productFilter.value) {
       return false
     }
-    if (tenantFilter.value !== '__all__' && row.tenantId !== tenantFilter.value) {
+    if (tenantFilter.value !== '__all__' && row.subscriberId !== tenantFilter.value) {
       return false
     }
     if (issuesOnly.value && row.status === 'normal') {
@@ -206,7 +206,7 @@ const rowsForSummary = computed(() => {
     if (!query.value) {
       return true
     }
-    return [row.metric, row.metricLabel, row.period, row.status, row.tenantName, row.productName, row.source].some((f) =>
+    return [row.metric, row.metricLabel, row.period, row.status, row.subscriberName, row.productName, row.source].some((f) =>
       f.toLowerCase().includes(query.value),
     )
   })
@@ -221,7 +221,7 @@ const summary = computed(() => {
   const throughputMetrics = ['lab_tests_per_month', 'pos_orders_per_month', 'transactions_per_month']
   const throughput = rows.filter((r) => throughputMetrics.includes(r.metric)).reduce((a, r) => a + r.value, 0)
 
-  const exceededTenants = new Set(rows.filter((r) => r.status === 'exceeded').map((r) => r.tenantId))
+  const exceededTenants = new Set(rows.filter((r) => r.status === 'exceeded').map((r) => r.subscriberId))
 
   return {
     activeUsers: sumMetric('users'),
@@ -249,9 +249,9 @@ const detailMetrics = computed(() => {
   if (!selectedRow.value || !data.value) {
     return []
   }
-  const { tenantId, productId, periodKey } = selectedRow.value
+  const { subscriberId, productId, periodKey } = selectedRow.value
   return data.value.usage
-    .filter((u) => u.tenantId === tenantId && u.productId === productId && u.periodKey === periodKey)
+    .filter((u) => u.subscriberId === subscriberId && u.productId === productId && u.periodKey === periodKey)
     .slice()
     .sort((a, b) => a.metricLabel.localeCompare(b.metricLabel))
 })
@@ -260,9 +260,9 @@ const trendPoints = computed(() => {
   if (!selectedRow.value || !data.value) {
     return []
   }
-  const { tenantId, productId, metric } = selectedRow.value
+  const { subscriberId, productId, metric } = selectedRow.value
   return data.value.usage
-    .filter((u) => u.tenantId === tenantId && u.productId === productId && u.metric === metric)
+    .filter((u) => u.subscriberId === subscriberId && u.productId === productId && u.metric === metric)
     .slice()
     .sort((a, b) => a.periodKey.localeCompare(b.periodKey))
 })
@@ -282,7 +282,7 @@ async function recalculate() {
 function exportCsv() {
   const rows = scopeRows.value
   const headers = [
-    'Customer',
+    'Subscriber',
     'Product',
     'Limit key',
     'Current usage',
@@ -305,7 +305,7 @@ function exportCsv() {
     headers.join(','),
     ...rows.map((r) =>
       [
-        esc(r.tenantName),
+        esc(r.subscriberName),
         esc(r.productName),
         esc(r.metricLabel),
         esc(r.value),
@@ -378,7 +378,7 @@ function utilizationFill(row: UsageRow) {
           <Button variant="outline" size="sm" class="shrink-0" @click="clearWorkspaceScope"> Full workspace </Button>
         </AlertTitle>
         <AlertDescription>
-          {{ workspaceScopeDescription }}. Narrowed from the customer hub, entitlements, or a direct link — use
+          {{ workspaceScopeDescription }}. Narrowed from the subscriber hub, entitlements, or a direct link — use
           <span class="font-medium">Full workspace</span> or change filters below to widen the view.
         </AlertDescription>
       </Alert>
@@ -439,12 +439,12 @@ function utilizationFill(row: UsageRow) {
           :class="summary.tenantsOverLimit > 0 ? 'border-destructive/40' : ''"
         >
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle class="text-sm font-medium text-muted-foreground">Customers over limit</CardTitle>
+            <CardTitle class="text-sm font-medium text-muted-foreground">Subscribers over limit</CardTitle>
             <AlertTriangle class="size-4" :class="summary.tenantsOverLimit > 0 ? 'text-destructive' : 'text-muted-foreground'" />
           </CardHeader>
           <CardContent>
             <p class="text-2xl font-semibold tabular-nums">{{ summary.tenantsOverLimit }}</p>
-            <p class="text-xs text-muted-foreground">Distinct customers with any exceeded limit</p>
+            <p class="text-xs text-muted-foreground">Distinct subscribers with any exceeded limit</p>
           </CardContent>
         </Card>
       </div>
@@ -459,7 +459,7 @@ function utilizationFill(row: UsageRow) {
             <div class="space-y-1">
               <CardTitle>Usage by limit</CardTitle>
               <CardDescription>
-                Filter by product, customer, and period, compare current usage to caps, and open a row for trends and sources.
+                Filter by product, subscriber, and period, compare current usage to caps, and open a row for trends and sources.
               </CardDescription>
             </div>
             <div class="relative w-full lg:max-w-xs">
@@ -479,7 +479,7 @@ function utilizationFill(row: UsageRow) {
             <div class="flex items-center gap-2">
               <Users class="size-4 shrink-0 text-muted-foreground" />
               <NativeSelect v-model="tenantFilter" class="h-9 min-w-[11rem]">
-                <NativeSelectOption value="__all__">All customers</NativeSelectOption>
+                <NativeSelectOption value="__all__">All subscribers</NativeSelectOption>
                 <NativeSelectOption v-for="[id, name] in tenantOptions" :key="id" :value="id">{{ name }}</NativeSelectOption>
               </NativeSelect>
             </div>
@@ -501,7 +501,7 @@ function utilizationFill(row: UsageRow) {
             <Table>
               <TableHeader>
                 <TableRow class="hover:bg-transparent">
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Subscriber</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>Limit key</TableHead>
                   <TableHead class="min-w-[200px]">Utilization</TableHead>
@@ -522,7 +522,7 @@ function utilizationFill(row: UsageRow) {
                   @click="openDetail(row)"
                 >
                   <TableCell>
-                    <div class="font-medium">{{ row.tenantName }}</div>
+                    <div class="font-medium">{{ row.subscriberName }}</div>
                   </TableCell>
                   <TableCell>{{ row.productName }}</TableCell>
                   <TableCell>
@@ -584,7 +584,7 @@ function utilizationFill(row: UsageRow) {
             <SheetHeader class="space-y-2">
               <SheetTitle class="text-xl leading-tight">{{ selectedRow?.metricLabel }}</SheetTitle>
               <SheetDescription class="text-sm">
-                {{ selectedRow?.tenantName }} · {{ selectedRow?.productName }} · {{ selectedRow?.period }}
+                {{ selectedRow?.subscriberName }} · {{ selectedRow?.productName }} · {{ selectedRow?.period }}
               </SheetDescription>
             </SheetHeader>
 
@@ -648,7 +648,7 @@ function utilizationFill(row: UsageRow) {
 
             <div class="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
               <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Trend (same customer · product · limit)
+                Trend (same subscriber · product · limit)
               </p>
               <ul class="mt-3 space-y-2">
                 <li v-for="p in trendPoints" :key="p.id" class="flex justify-between gap-3 rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-sm">
@@ -666,7 +666,7 @@ function utilizationFill(row: UsageRow) {
 
             <div class="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
               <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                All limits for this customer · product · period
+                All limits for this subscriber · product · period
               </p>
               <ul class="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
                 <li v-for="m in detailMetrics" :key="m.id" class="rounded-xl border border-border/50 bg-background/70 p-3">

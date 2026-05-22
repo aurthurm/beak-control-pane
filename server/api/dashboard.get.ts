@@ -13,7 +13,7 @@ import {
   productsTable,
   runtimeFeatureFlagsTable,
   subscriptionsTable,
-  tenantsTable,
+  subscribersTable,
   usageRecordsTable,
 } from '../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../db/bootstrap'
@@ -31,7 +31,7 @@ import {
   isSubscriptionBillingActive,
   monthlyNormalizedMrr,
   productTypeLabel,
-  tenantIdsForProduct,
+  subscriberIdsForProduct,
 } from '../utils/products'
 import { effectiveSubscriptionPricing, parseAddOns } from '../utils/subscriptions'
 import { isEntitledSubscriptionStatus } from '../utils/features'
@@ -104,10 +104,10 @@ export default defineEventHandler(async (event) => {
 
   const tenants = await db
     .select()
-    .from(tenantsTable)
-    .where(eq(tenantsTable.organizationId, organizationId))
-    .orderBy(desc(tenantsTable.createdAt))
-  const tenantIds = tenants.map((t) => t.id)
+    .from(subscribersTable)
+    .where(eq(subscribersTable.organizationId, organizationId))
+    .orderBy(desc(subscribersTable.createdAt))
+  const subscriberIds = tenants.map((t) => t.id)
 
   const plans = productIds.length
     ? await db
@@ -118,16 +118,16 @@ export default defineEventHandler(async (event) => {
     : []
   const planIds = plans.map((p) => p.id)
 
-  const subscriptions = tenantIds.length
-    ? await db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.tenantId, tenantIds))
+  const subscriptions = subscriberIds.length
+    ? await db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.subscriberId, subscriberIds))
     : []
 
   const licenses =
-    tenantIds.length && productIds.length
+    subscriberIds.length && productIds.length
       ? await db
           .select()
           .from(licensesTable)
-          .where(and(inArray(licensesTable.tenantId, tenantIds), inArray(licensesTable.productId, productIds)))
+          .where(and(inArray(licensesTable.subscriberId, subscriberIds), inArray(licensesTable.productId, productIds)))
       : []
   const licenseIds = licenses.map((l) => l.id)
 
@@ -140,25 +140,25 @@ export default defineEventHandler(async (event) => {
     : []
 
   const usageWhere =
-    tenantIds.length && productIds.length
+    subscriberIds.length && productIds.length
       ? and(
-          inArray(usageRecordsTable.tenantId, tenantIds),
+          inArray(usageRecordsTable.subscriberId, subscriberIds),
           or(isNull(usageRecordsTable.productId), inArray(usageRecordsTable.productId, productIds)),
         )
-      : tenantIds.length
+      : subscriberIds.length
         ? and(
-            inArray(usageRecordsTable.tenantId, tenantIds),
+            inArray(usageRecordsTable.subscriberId, subscriberIds),
             isNull(usageRecordsTable.productId),
           )
         : sql`1 = 0`
 
-  const usageRecords = tenantIds.length ? await db.select().from(usageRecordsTable).where(usageWhere) : []
+  const usageRecords = subscriberIds.length ? await db.select().from(usageRecordsTable).where(usageWhere) : []
 
-  const billingEvents = tenantIds.length
+  const billingEvents = subscriberIds.length
     ? await db
         .select()
         .from(billingEventsTable)
-        .where(inArray(billingEventsTable.tenantId, tenantIds))
+        .where(inArray(billingEventsTable.subscriberId, subscriberIds))
         .orderBy(desc(billingEventsTable.occurredAt))
     : []
 
@@ -182,18 +182,18 @@ export default defineEventHandler(async (event) => {
     : []
 
   const entitlements =
-    tenantIds.length && productIds.length
+    subscriberIds.length && productIds.length
       ? await db
           .select()
           .from(entitlementsTable)
-          .where(and(inArray(entitlementsTable.tenantId, tenantIds), inArray(entitlementsTable.productId, productIds)))
+          .where(and(inArray(entitlementsTable.subscriberId, subscriberIds), inArray(entitlementsTable.productId, productIds)))
       : []
 
-  const auditLogs = tenantIds.length
+  const auditLogs = subscriberIds.length
     ? await db
         .select()
         .from(auditLogsTable)
-        .where(inArray(auditLogsTable.tenantId, tenantIds))
+        .where(inArray(auditLogsTable.subscriberId, subscriberIds))
         .orderBy(desc(auditLogsTable.createdAt))
     : []
 
@@ -230,26 +230,26 @@ export default defineEventHandler(async (event) => {
     planIdsByProduct.set(plan.productId, idSet)
   }
 
-  const entitlementIndex = entitlements.map((e) => ({ tenantId: e.tenantId, productId: e.productId }))
-  const licenseIndex = licenses.map((l) => ({ tenantId: l.tenantId, productId: l.productId }))
+  const entitlementIndex = entitlements.map((e) => ({ subscriberId: e.subscriberId, productId: e.productId }))
+  const licenseIndex = licenses.map((l) => ({ subscriberId: l.subscriberId, productId: l.productId }))
 
   const planMap = new Map(plans.map((plan) => [plan.id, plan]))
-  const tenantMap = new Map(tenants.map((tenant) => [tenant.id, tenant]))
+  const tenantMap = new Map(tenants.map((subscriber) => [subscriber.id, subscriber]))
   const productMap = new Map(products.map((product) => [product.id, product]))
   const featureMap = new Map(features.map((feature) => [feature.id, feature]))
   const subsByTenant = new Map<string, typeof subscriptions>()
   for (const s of subscriptions) {
-    const cur = subsByTenant.get(s.tenantId) ?? []
+    const cur = subsByTenant.get(s.subscriberId) ?? []
     cur.push(s)
-    subsByTenant.set(s.tenantId, cur)
+    subsByTenant.set(s.subscriberId, cur)
   }
 
-  const resolveUsageProductId = (tenantId: string, explicit: string | null | undefined) => {
+  const resolveUsageProductId = (subscriberId: string, explicit: string | null | undefined) => {
     if (explicit && String(explicit).trim()) {
       return String(explicit).trim()
     }
 
-    const sub = subscriptions.find((s) => s.tenantId === tenantId && isSubscriptionBillingActive(s.status))
+    const sub = subscriptions.find((s) => s.subscriberId === subscriberId && isSubscriptionBillingActive(s.status))
     if (!sub) {
       return ''
     }
@@ -257,24 +257,24 @@ export default defineEventHandler(async (event) => {
     return planMap.get(sub.planId)?.productId ?? ''
   }
 
-  const subscribedProductNames = (tenantId: string) => {
+  const subscribedProductNames = (subscriberId: string) => {
     const names = new Set<string>()
-    for (const sub of subsByTenant.get(tenantId) ?? []) {
+    for (const sub of subsByTenant.get(subscriberId) ?? []) {
       const plan = planMap.get(sub.planId)
       const product = plan ? productMap.get(plan.productId) : undefined
       if (product?.name) names.add(product.name)
     }
     for (const ent of entitlements) {
-      if (ent.tenantId !== tenantId) continue
+      if (ent.subscriberId !== subscriberId) continue
       const product = productMap.get(ent.productId)
       if (product?.name) names.add(product.name)
     }
     return [...names].sort()
   }
 
-  const planSummaryForTenant = (tenantId: string) => {
+  const planSummaryForTenant = (subscriberId: string) => {
     const parts: string[] = []
-    for (const sub of subsByTenant.get(tenantId) ?? []) {
+    for (const sub of subsByTenant.get(subscriberId) ?? []) {
       const plan = planMap.get(sub.planId)
       const product = plan ? productMap.get(plan.productId) : undefined
       const label = product && plan ? `${product.name} — ${plan.name}` : plan?.name ?? sub.planId
@@ -284,8 +284,8 @@ export default defineEventHandler(async (event) => {
     return uniq.length ? uniq.join(' · ') : '—'
   }
 
-  const billingStatusForTenant = (tenantId: string) => {
-    const subs = subsByTenant.get(tenantId) ?? []
+  const billingStatusForTenant = (subscriberId: string) => {
+    const subs = subsByTenant.get(subscriberId) ?? []
     if (!subs.length) return 'None'
     const lowered = subs.map((s) => s.status.toLowerCase())
     if (lowered.some((x) => x === 'past_due')) return 'Past due'
@@ -295,8 +295,8 @@ export default defineEventHandler(async (event) => {
     return subs[0]!.status
   }
 
-  const licenseStatusForTenant = (tenantId: string) => {
-    const lics = licenses.filter((l) => l.tenantId === tenantId)
+  const licenseStatusForTenant = (subscriberId: string) => {
+    const lics = licenses.filter((l) => l.subscriberId === subscriberId)
     if (!lics.length) return 'None'
     const lowered = lics.map((l) => l.status.toLowerCase())
     if (lowered.some((x) => x === 'expired')) return 'Expired'
@@ -351,15 +351,15 @@ export default defineEventHandler(async (event) => {
   const entitledTenantsMap = new Map<string, Map<string, { id: string; name: string; via: Set<string> }>>()
   const addEntitledTenant = (
     featureId: string,
-    tenantId: string,
-    tenantName: string,
+    subscriberId: string,
+    subscriberName: string,
     via: 'plan' | 'entitlement',
   ) => {
     const byTenant = entitledTenantsMap.get(featureId) ?? new Map()
-    const cur = byTenant.get(tenantId) ?? { id: tenantId, name: tenantName, via: new Set<string>() }
+    const cur = byTenant.get(subscriberId) ?? { id: subscriberId, name: subscriberName, via: new Set<string>() }
     cur.via.add(via)
-    cur.name = tenantName
-    byTenant.set(tenantId, cur)
+    cur.name = subscriberName
+    byTenant.set(subscriberId, cur)
     entitledTenantsMap.set(featureId, byTenant)
   }
 
@@ -373,12 +373,12 @@ export default defineEventHandler(async (event) => {
         continue
       }
 
-      const tenant = tenantMap.get(sub.tenantId)
-      if (!tenant) {
+      const subscriber = tenantMap.get(sub.subscriberId)
+      if (!subscriber) {
         continue
       }
 
-      addEntitledTenant(link.featureId, tenant.id, tenant.name, 'plan')
+      addEntitledTenant(link.featureId, subscriber.id, subscriber.name, 'plan')
     }
   }
 
@@ -400,12 +400,12 @@ export default defineEventHandler(async (event) => {
         continue
       }
 
-      const tenant = tenantMap.get(ent.tenantId)
-      if (!tenant) {
+      const subscriber = tenantMap.get(ent.subscriberId)
+      if (!subscriber) {
         continue
       }
 
-      addEntitledTenant(feature.id, tenant.id, tenant.name, 'entitlement')
+      addEntitledTenant(feature.id, subscriber.id, subscriber.name, 'entitlement')
     }
   }
 
@@ -424,8 +424,8 @@ export default defineEventHandler(async (event) => {
     notes: limit.notes,
   }))
 
-  const subscriptionForTenantProduct = (tenantId: string, productId: string) => {
-    for (const sub of subsByTenant.get(tenantId) ?? []) {
+  const subscriptionForTenantProduct = (subscriberId: string, productId: string) => {
+    for (const sub of subsByTenant.get(subscriberId) ?? []) {
       const plan = planMap.get(sub.planId)
       if (plan?.productId === productId) {
         return sub
@@ -434,7 +434,7 @@ export default defineEventHandler(async (event) => {
     return null
   }
 
-  const tenantsWithSubscription = new Set(subscriptions.map((s) => s.tenantId))
+  const tenantsWithSubscription = new Set(subscriptions.map((s) => s.subscriberId))
   const activeSubscriptions = subscriptions.filter((s) => isSubscriptionBillingActive(s.status)).length
   const trialingSubscriptions = subscriptions.filter((s) => s.status.toLowerCase() === 'trialing').length
   const trialTenants = tenants.filter((t) => t.status.toLowerCase() === 'trial').length
@@ -522,7 +522,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const subscriptionForLicenseRow = (license: (typeof licenses)[number]) => {
-    for (const sub of subsByTenant.get(license.tenantId) ?? []) {
+    for (const sub of subsByTenant.get(license.subscriberId) ?? []) {
       const plan = planMap.get(sub.planId)
       if (plan?.productId === license.productId) {
         return { subscription: sub, plan }
@@ -599,9 +599,9 @@ export default defineEventHandler(async (event) => {
     alerts.push({
       severity: 'critical',
       title: 'Failed or disputed payments',
-      detail: 'Review billing events and retry or contact customers.',
+      detail: 'Review billing events and retry or contact subscribers.',
       count: failedPaymentsCount,
-      href: '/customers',
+      href: '/subscribers',
     })
   }
 
@@ -627,7 +627,7 @@ export default defineEventHandler(async (event) => {
     alerts.push({
       severity: 'warning',
       title: 'Licenses expiring within 30 days',
-      detail: 'Schedule renewals with customers.',
+      detail: 'Schedule renewals with subscribers.',
       count: licensesExpiring30d.length,
       href: '/licenses',
     })
@@ -638,7 +638,7 @@ export default defineEventHandler(async (event) => {
       severity: 'critical',
       title: 'Tenants over usage limits',
       detail: 'Usage metrics at or above plan limits.',
-      count: new Set(overLimitUsage.map((r) => r.tenantId)).size,
+      count: new Set(overLimitUsage.map((r) => r.subscriberId)).size,
       href: '/usage',
     })
   } else if (usageWarning.length > 0) {
@@ -646,7 +646,7 @@ export default defineEventHandler(async (event) => {
       severity: 'warning',
       title: 'Tenants nearing usage limits',
       detail: 'Watch for upgrades or limit increases.',
-      count: new Set(usageWarning.map((r) => r.tenantId)).size,
+      count: new Set(usageWarning.map((r) => r.subscriberId)).size,
       href: '/usage',
     })
   }
@@ -684,9 +684,9 @@ export default defineEventHandler(async (event) => {
     alerts.push({
       severity: 'info',
       title: 'Tenants without a subscription',
-      detail: 'Customers present but no subscription row — assign plans or clean up.',
+      detail: 'Subscribers present but no subscription row — assign plans or clean up.',
       count: tenantsWithoutSubscription.length,
-      href: '/customers',
+      href: '/subscribers',
     })
   }
 
@@ -703,8 +703,8 @@ export default defineEventHandler(async (event) => {
       return plan?.productId === product.id && isSubscriptionBillingActive(s.status)
     })
 
-    const tenantIds = new Set(subsForProduct.map((s) => s.tenantId))
-    const activeTenants = tenantIds.size
+    const subscriberIds = new Set(subsForProduct.map((s) => s.subscriberId))
+    const activeTenants = subscriberIds.size
 
     let revenueContributionCents = 0
     for (const s of subsForProduct) {
@@ -745,19 +745,19 @@ export default defineEventHandler(async (event) => {
       .map(([key, count]) => ({
         key,
         name: featureNameByKey.get(key) ?? key,
-        tenantCount: count,
+        subscriberCount: count,
       }))
 
-    const seatsSum = [...tenantIds].reduce((acc, tid) => acc + (tenantMap.get(tid)?.seats ?? 0), 0)
+    const seatsSum = [...subscriberIds].reduce((acc, tid) => acc + (tenantMap.get(tid)?.seats ?? 0), 0)
     const avgUsersPerTenant = activeTenants > 0 ? Math.round((seatsSum / activeTenants) * 10) / 10 : 0
 
     const recentCutoff = new Date(now.getTime() - 30 * MS_DAY)
     const olderCutoff = new Date(now.getTime() - 60 * MS_DAY)
-    const recentTenants = [...tenantIds].filter((tid) => {
+    const recentTenants = [...subscriberIds].filter((tid) => {
       const created = tenantMap.get(tid)?.createdAt
       return created && new Date(created) >= recentCutoff
     }).length
-    const olderTenants = [...tenantIds].filter((tid) => {
+    const olderTenants = [...subscriberIds].filter((tid) => {
       const created = tenantMap.get(tid)?.createdAt
       if (!created) {
         return false
@@ -813,19 +813,19 @@ export default defineEventHandler(async (event) => {
     totalCents,
   }))
 
-  const newCustomersByMonth = new Map<string, number>()
+  const newSubscribersByMonth = new Map<string, number>()
   for (const mk of monthBuckets.keys()) {
-    newCustomersByMonth.set(mk, 0)
+    newSubscribersByMonth.set(mk, 0)
   }
 
-  for (const tenant of tenants) {
-    const mk = monthKeyFromDate(new Date(tenant.createdAt))
-    if (newCustomersByMonth.has(mk)) {
-      newCustomersByMonth.set(mk, (newCustomersByMonth.get(mk) ?? 0) + 1)
+  for (const subscriber of tenants) {
+    const mk = monthKeyFromDate(new Date(subscriber.createdAt))
+    if (newSubscribersByMonth.has(mk)) {
+      newSubscribersByMonth.set(mk, (newSubscribersByMonth.get(mk) ?? 0) + 1)
     }
   }
 
-  const newTenantsTrend = [...newCustomersByMonth.entries()].map(([monthKey, count]) => ({
+  const newTenantsTrend = [...newSubscribersByMonth.entries()].map(([monthKey, count]) => ({
     monthKey,
     label: monthLabel(monthKey),
     count,
@@ -911,21 +911,21 @@ export default defineEventHandler(async (event) => {
   const activityFeed: FeedItem[] = []
 
   for (const event of billingEvents) {
-    const tenant = tenantMap.get(event.tenantId)
+    const subscriber = tenantMap.get(event.subscriberId)
     const bl = billingFeedLabel(event.eventType)
     activityFeed.push({
       id: `bevt-${event.id}`,
       kind: 'billing',
       occurredAt: event.occurredAt,
       title: bl.title,
-      description: `${tenant?.name ?? 'Tenant'} · ${event.provider} · ${event.eventType}`,
+      description: `${subscriber?.name ?? 'Tenant'} · ${event.provider} · ${event.eventType}`,
       severity: bl.severity,
-      href: `/customers/${event.tenantId}?tab=billing`,
+      href: `/subscribers/${event.subscriberId}?tab=billing`,
     })
   }
 
   for (const log of auditLogs) {
-    const tenant = log.tenantId ? tenantMap.get(log.tenantId) : undefined
+    const subscriber = log.subscriberId ? tenantMap.get(log.subscriberId) : undefined
     const al = auditFeedLabel(log.action)
     const severity =
       String(log.result).toLowerCase() === 'failure' ? ('destructive' as const) : al.severity
@@ -934,7 +934,7 @@ export default defineEventHandler(async (event) => {
       kind: 'audit',
       occurredAt: log.createdAt,
       title: al.title,
-      description: `${tenant?.name ?? 'Beak'} · ${log.actor} · ${log.resourceType}`,
+      description: `${subscriber?.name ?? 'Beak'} · ${log.actor} · ${log.resourceType}`,
       severity,
       href: '/audit-logs',
     })
@@ -967,7 +967,7 @@ export default defineEventHandler(async (event) => {
       expiringSoon,
     },
     businessHealth: {
-      totalCustomers: tenants.length,
+      totalSubscribers: tenants.length,
       activeSubscriptions,
       mrrCents,
       arrCents,
@@ -994,7 +994,7 @@ export default defineEventHandler(async (event) => {
         status: 'Ready',
       },
       {
-        title: 'Customer management',
+        title: 'Subscriber management',
         description: 'Tenants, subscriptions, and seat allocations are represented for self-service and internal teams.',
         status: 'Ready',
       },
@@ -1032,8 +1032,8 @@ export default defineEventHandler(async (event) => {
     api: [
       {
         method: 'GET',
-        path: '/api/entitlements/:tenant/:product',
-        purpose: 'Return computed modules and limits for a tenant and product pair.',
+        path: '/api/entitlements/:subscriber/:product',
+        purpose: 'Return computed modules and limits for a subscriber and product pair.',
       },
       {
         method: 'POST',
@@ -1048,7 +1048,7 @@ export default defineEventHandler(async (event) => {
       {
         method: 'GET',
         path: '/api/activations/:id',
-        purpose: 'Inspect one activation with license, tenant, heartbeats, violations, and risk indicators.',
+        purpose: 'Inspect one activation with license, subscriber, heartbeats, violations, and risk indicators.',
       },
       {
         method: 'PATCH',
@@ -1058,7 +1058,7 @@ export default defineEventHandler(async (event) => {
     ],
     products: products.map((product) => {
       const planIds = planIdsByProduct.get(product.id) ?? new Set<string>()
-      const tenantCount = tenantIdsForProduct(product.id, planIds, subscriptions, entitlementIndex, licenseIndex).size
+      const subscriberCount = subscriberIdsForProduct(product.id, planIds, subscriptions, entitlementIndex, licenseIndex).size
 
       return {
         id: product.id,
@@ -1070,7 +1070,7 @@ export default defineEventHandler(async (event) => {
         productTypeLabel: productTypeLabel(product.productType),
         defaultBillingMode: product.defaultBillingMode,
         defaultBillingModeLabel: defaultBillingModeLabel(product.defaultBillingMode),
-        tenantCount,
+        subscriberCount,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
         offlineLicensesSupported: product.offlineLicensesSupported,
@@ -1079,45 +1079,45 @@ export default defineEventHandler(async (event) => {
         description: product.description,
       }
     }),
-    tenants: tenants.map((tenant) => {
-      const planSummary = planSummaryForTenant(tenant.id)
-      const productsSubscribed = subscribedProductNames(tenant.id)
+    tenants: tenants.map((subscriber) => {
+      const planSummary = planSummaryForTenant(subscriber.id)
+      const productsSubscribed = subscribedProductNames(subscriber.id)
       return {
-        id: tenant.id,
-        slug: tenant.slug,
-        legalName: tenant.legalName,
-        name: tenant.name,
-        industry: tenant.industry,
-        status: tenant.status,
+        id: subscriber.id,
+        slug: subscriber.slug,
+        legalName: subscriber.legalName,
+        name: subscriber.name,
+        industry: subscriber.industry,
+        status: subscriber.status,
         planName: planSummary === '—' ? 'Unassigned' : planSummary,
         planSummary,
         subscribedProducts: productsSubscribed,
-        billingStatus: billingStatusForTenant(tenant.id),
-        licenseStatus: licenseStatusForTenant(tenant.id),
-        country: tenant.country,
-        createdAt: tenant.createdAt,
-        contactName: tenant.contactName,
-        email: tenant.email,
-        phone: tenant.phone,
-        billingMode: tenant.billingMode,
-        billingProvider: tenant.billingProvider,
-        supportTier: tenant.supportTier,
-        internalNotes: tenant.internalNotes,
-        productCount: subscriptions.filter((subscription) => subscription.tenantId === tenant.id).length,
-        seats: tenant.seats,
-        enterpriseSegment: tenant.enterpriseSegment ?? '',
+        billingStatus: billingStatusForTenant(subscriber.id),
+        licenseStatus: licenseStatusForTenant(subscriber.id),
+        country: subscriber.country,
+        createdAt: subscriber.createdAt,
+        contactName: subscriber.contactName,
+        email: subscriber.email,
+        phone: subscriber.phone,
+        billingMode: subscriber.billingMode,
+        billingProvider: subscriber.billingProvider,
+        supportTier: subscriber.supportTier,
+        internalNotes: subscriber.internalNotes,
+        productCount: subscriptions.filter((subscription) => subscription.subscriberId === subscriber.id).length,
+        seats: subscriber.seats,
+        enterpriseSegment: subscriber.enterpriseSegment ?? '',
       }
     }),
     licenses: licenses.map((license) => {
-      const tenant = tenantMap.get(license.tenantId)
+      const subscriber = tenantMap.get(license.subscriberId)
       const product = productMap.get(license.productId)
 
       return {
         id: license.id,
-        tenantId: license.tenantId,
+        subscriberId: license.subscriberId,
         productId: license.productId,
         licenseKey: license.licenseKey,
-        tenantName: tenant?.name ?? license.tenantId,
+        subscriberName: subscriber?.name ?? license.subscriberId,
         productName: product?.name ?? license.productId,
         mode: license.mode,
         status: license.status,
@@ -1132,7 +1132,7 @@ export default defineEventHandler(async (event) => {
     }),
     activations: activations.map((activation) => {
       const license = licenses.find((row) => row.id === activation.licenseId)
-      const tenant = license ? tenantMap.get(license.tenantId) : undefined
+      const subscriber = license ? tenantMap.get(license.subscriberId) : undefined
       const product = license ? productMap.get(license.productId) : undefined
 
       const consumed = activationsByLicense.get(activation.licenseId) ?? 0
@@ -1164,8 +1164,8 @@ export default defineEventHandler(async (event) => {
         id: activation.id,
         licenseId: activation.licenseId,
         licenseKey: license?.licenseKey ?? activation.licenseId,
-        tenantId: license?.tenantId ?? '',
-        tenantName: tenant?.name ?? '',
+        subscriberId: license?.subscriberId ?? '',
+        subscriberName: subscriber?.name ?? '',
         productName: product?.name ?? '',
         deviceId: activation.deviceId,
         siteId: activation.siteId,
@@ -1192,8 +1192,8 @@ export default defineEventHandler(async (event) => {
       }
     }),
     usage: usageRecords.map((record) => {
-      const tenant = tenantMap.get(record.tenantId)
-      const productId = resolveUsageProductId(record.tenantId, record.productId)
+      const subscriber = tenantMap.get(record.subscriberId)
+      const productId = resolveUsageProductId(record.subscriberId, record.productId)
       const product = productId ? productMap.get(productId) : undefined
       const limitValue = record.limitValue
       const utilizationPercent = limitValue > 0 ? Math.round((record.value / limitValue) * 1000) / 10 : 0
@@ -1209,8 +1209,8 @@ export default defineEventHandler(async (event) => {
 
       return {
         id: record.id,
-        tenantId: record.tenantId,
-        tenantName: tenant?.name ?? record.tenantId,
+        subscriberId: record.subscriberId,
+        subscriberName: subscriber?.name ?? record.subscriberId,
         productId,
         productName: product?.name ?? (productId ? productId : '—'),
         metric: record.metric,
@@ -1229,11 +1229,11 @@ export default defineEventHandler(async (event) => {
       }
     }),
     billingEvents: billingEvents.map((event) => {
-      const t = tenantMap.get(event.tenantId)
+      const t = tenantMap.get(event.subscriberId)
       return {
         id: event.id,
-        tenantId: event.tenantId,
-        tenantName: t?.name ?? event.tenantId,
+        subscriberId: event.subscriberId,
+        subscriberName: t?.name ?? event.subscriberId,
         subscriptionId: event.subscriptionId,
         provider: event.provider,
         eventType: event.eventType,
@@ -1419,8 +1419,8 @@ export default defineEventHandler(async (event) => {
 
       return {
         id: subscription.id,
-        tenantId: subscription.tenantId,
-        tenantName: tenantMap.get(subscription.tenantId)?.name ?? subscription.tenantId,
+        subscriberId: subscription.subscriberId,
+        subscriberName: tenantMap.get(subscription.subscriberId)?.name ?? subscription.subscriberId,
         planId: subscription.planId,
         planName: plan?.name ?? subscription.planId,
         productId: product?.id ?? plan?.productId ?? '',
@@ -1453,7 +1453,7 @@ export default defineEventHandler(async (event) => {
         payload = {}
       }
 
-      const subRow = subscriptionForTenantProduct(entitlement.tenantId, entitlement.productId)
+      const subRow = subscriptionForTenantProduct(entitlement.subscriberId, entitlement.productId)
       const plan = subRow ? planMap.get(subRow.planId) : null
       const planDerived = plan
         ? buildPlanDerived(plan.id, plan.name, plan.productId, planFeatureRows, planLimitRowsFlat)
@@ -1482,7 +1482,7 @@ export default defineEventHandler(async (event) => {
           }
         : null
 
-      const licRow = licenses.find((l) => l.tenantId === entitlement.tenantId && l.productId === entitlement.productId)
+      const licRow = licenses.find((l) => l.subscriberId === entitlement.subscriberId && l.productId === entitlement.productId)
       let payloadSummary: Record<string, unknown> = {}
       try {
         payloadSummary = JSON.parse(licRow?.payloadJson || '{}') as Record<string, unknown>
@@ -1527,8 +1527,8 @@ export default defineEventHandler(async (event) => {
 
       return enrichEntitlementRow({
         id: entitlement.id,
-        tenantId: entitlement.tenantId,
-        tenantName: tenantMap.get(entitlement.tenantId)?.name ?? entitlement.tenantId,
+        subscriberId: entitlement.subscriberId,
+        subscriberName: tenantMap.get(entitlement.subscriberId)?.name ?? entitlement.subscriberId,
         productId: entitlement.productId,
         productName: productMap.get(entitlement.productId)?.name ?? entitlement.productId,
         computedAt: entitlement.computedAt,
@@ -1542,8 +1542,8 @@ export default defineEventHandler(async (event) => {
     }),
     auditTrail: auditLogs.map((log) => ({
       id: log.id,
-      tenantId: log.tenantId,
-      tenantName: log.tenantId ? tenantMap.get(log.tenantId)?.name ?? log.tenantId : 'Beak',
+      subscriberId: log.subscriberId,
+      subscriberName: log.subscriberId ? tenantMap.get(log.subscriberId)?.name ?? log.subscriberId : 'Beak',
       actor: log.actor,
       action: log.action,
       resourceType: log.resourceType,

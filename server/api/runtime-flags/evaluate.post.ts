@@ -1,13 +1,13 @@
 import { eq, inArray, isNull, or } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
-import { runtimeFeatureFlagsTable, tenantsTable } from '../../db/schema'
+import { runtimeFeatureFlagsTable, subscribersTable } from '../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
 import { requireIngestSecretOrStaffApi } from '../../utils/ingest-auth'
 import { bumpMetric } from '../../utils/metrics-store'
 import { evaluateRuntimeFlagRow } from '../../utils/runtime-flags'
 
 type Body = {
-  tenantId?: string
+  subscriberId?: string
   productId?: string | null
   environment?: string | null
   /** If omitted, all active flags (optionally filtered by productId) are evaluated */
@@ -19,9 +19,9 @@ export default defineEventHandler(async (event) => {
   bumpMetric('runtime_flags_evaluate_total')
 
   const body = await readBody<Body>(event)
-  const tenantId = body.tenantId?.trim()
-  if (!tenantId) {
-    throw createError({ statusCode: 400, statusMessage: 'tenantId is required' })
+  const subscriberId = body.subscriberId?.trim()
+  if (!subscriberId) {
+    throw createError({ statusCode: 400, statusMessage: 'subscriberId is required' })
   }
 
   const productId = body.productId?.trim() || null
@@ -33,9 +33,9 @@ export default defineEventHandler(async (event) => {
   const db = drizzle(client)
 
   const [tenantRow] = await db
-    .select({ enterpriseSegment: tenantsTable.enterpriseSegment })
-    .from(tenantsTable)
-    .where(eq(tenantsTable.id, tenantId))
+    .select({ enterpriseSegment: subscribersTable.enterpriseSegment })
+    .from(subscribersTable)
+    .where(eq(subscribersTable.id, subscriberId))
     .limit(1)
   const enterpriseSegment = tenantRow?.enterpriseSegment ?? ''
 
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
   const active = rows.filter((r) => r.status === 'active' && !r.archivedAt?.trim())
 
   const flags = active.map((row) =>
-    evaluateRuntimeFlagRow(row, { tenantId, environment, enterpriseSegment }),
+    evaluateRuntimeFlagRow(row, { subscriberId, environment, enterpriseSegment }),
   )
 
   const map: Record<string, { value: string; enabled: boolean; reason: string }> = {}
@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    tenantId,
+    subscriberId,
     productId,
     environment: environment ?? null,
     flags: map,

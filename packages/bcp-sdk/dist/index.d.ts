@@ -1,5 +1,5 @@
 type EntitlementApiResponse = {
-    tenant: {
+    subscriber: {
         id: string;
         name: string;
         status: string;
@@ -56,7 +56,7 @@ type EntitlementApiResponse = {
 };
 type BcpClientOptions = {
     baseUrl: string;
-    tenantId: string;
+    subscriberId: string;
     productId: string;
     /** PEM public key (SPKI) for offline JWS verification */
     publicKeyPem?: string;
@@ -71,7 +71,7 @@ type LicenseExportFile = {
 };
 declare class BcpClient {
     private readonly baseUrl;
-    private readonly tenantId;
+    private readonly subscriberId;
     private readonly productId;
     private readonly publicKeyPem?;
     private readonly ingestApiKey?;
@@ -80,7 +80,7 @@ declare class BcpClient {
     private offlinePayload;
     constructor(opts: BcpClientOptions);
     private ingestHeaders;
-    /** Fetch latest entitlements from GET /api/entitlements/:tenant/:product */
+    /** Fetch latest entitlements from GET /api/entitlements/:subscriber/:product */
     refresh(): Promise<EntitlementApiResponse>;
     /** Load offline license file JSON ({ kid, jws, payload }) and verify JWS when publicKeyPem is set */
     importLicenseFile(text: string): Promise<Record<string, unknown>>;
@@ -91,7 +91,7 @@ declare class BcpClient {
     isExpired(): boolean;
     canAddUser(): boolean;
     daysRemaining(): number;
-    /** POST /api/usage/report — metered usage for this tenant/product */
+    /** POST /api/usage/report — metered usage for this subscriber/product */
     reportUsage(body: {
         metric: string;
         value: number;
@@ -102,12 +102,12 @@ declare class BcpClient {
         licenseKey?: string;
         recalculate?: boolean;
     }): Promise<unknown>;
-    /** POST /api/runtime-flags/evaluate — rollout flags for this tenant (and product scope when set) */
+    /** POST /api/runtime-flags/evaluate — rollout flags for this subscriber (and product scope when set) */
     evaluateRuntimeFlags(opts?: {
         environment?: string | null;
         flagKeys?: string[];
     }): Promise<{
-        tenantId: string;
+        subscriberId: string;
         productId: string | null;
         environment: string | null;
         flags: Record<string, {

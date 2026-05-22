@@ -15,7 +15,7 @@ export type ProductOverviewRow = {
   status: string
   activeTenants: number
   revenueContributionCents: number
-  topModules: Array<{ key: string; name: string; tenantCount: number }>
+  topModules: Array<{ key: string; name: string; subscriberCount: number }>
   avgUsersPerTenant: number
   growthTrend: 'up' | 'flat' | 'down'
 }
@@ -90,8 +90,8 @@ export type EntitlementFeatureFlagInteraction = {
 
 export type EntitlementsDetailRow = {
   id: string
-  tenantId: string
-  tenantName: string
+  subscriberId: string
+  subscriberName: string
   productId: string
   productName: string
   computedAt: string
@@ -148,7 +148,7 @@ export type WorkspaceDashboard = {
     expiringSoon: number
   }
   businessHealth: {
-    totalCustomers: number
+    totalSubscribers: number
     activeSubscriptions: number
     mrrCents: number
     arrCents: number
@@ -188,7 +188,7 @@ export type WorkspaceDashboard = {
     productTypeLabel: string
     defaultBillingMode: string
     defaultBillingModeLabel: string
-    tenantCount: number
+    subscriberCount: number
     createdAt: string
     updatedAt: string
     offlineLicensesSupported: boolean
@@ -223,10 +223,10 @@ export type WorkspaceDashboard = {
   }>
   licenses: Array<{
     id: string
-    tenantId: string
+    subscriberId: string
     productId: string
     licenseKey: string
-    tenantName: string
+    subscriberName: string
     productName: string
     planName?: string
     planSlug?: string
@@ -271,8 +271,8 @@ export type WorkspaceDashboard = {
     id: string
     licenseId: string
     licenseKey: string
-    tenantId: string
-    tenantName: string
+    subscriberId: string
+    subscriberName: string
     productName: string
     deviceId: string
     siteId: string
@@ -299,8 +299,8 @@ export type WorkspaceDashboard = {
   }>
   usage: Array<{
     id: string
-    tenantId: string
-    tenantName: string
+    subscriberId: string
+    subscriberName: string
     productId: string
     productName: string
     metric: string
@@ -319,8 +319,8 @@ export type WorkspaceDashboard = {
   }>
   billingEvents: Array<{
     id: string
-    tenantId: string
-    tenantName: string
+    subscriberId: string
+    subscriberName: string
     subscriptionId: string | null
     provider: string
     eventType: string
@@ -411,8 +411,8 @@ export type WorkspaceDashboard = {
   }>
   subscriptionsDetail: Array<{
     id: string
-    tenantId: string
-    tenantName: string
+    subscriberId: string
+    subscriberName: string
     planId: string
     planName: string
     productId: string
@@ -438,8 +438,8 @@ export type WorkspaceDashboard = {
   entitlementsDetail: EntitlementsDetailRow[]
   auditTrail: Array<{
     id: string
-    tenantId: string | null
-    tenantName: string
+    subscriberId: string | null
+    subscriberName: string
     actor: string
     action: string
     resourceType: string

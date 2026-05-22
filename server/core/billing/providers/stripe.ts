@@ -7,7 +7,7 @@ import type { NormalizedBillingEvent, BillingReconcileOp, CheckoutSessionParams,
 import { drizzle } from 'drizzle-orm/libsql'
 import { eq } from 'drizzle-orm'
 import { bootstrapDatabase, getDatabaseClient } from '../../../db/bootstrap'
-import { plansTable, subscriptionsTable, tenantsTable } from '../../../db/schema'
+import { plansTable, subscriptionsTable, subscribersTable } from '../../../db/schema'
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY?.trim()
@@ -33,7 +33,7 @@ function mapStripeSubStatus(status: Stripe.Subscription.Status): string {
 
 function metaTenantId(m: Stripe.Metadata | null): string | undefined {
   if (!m) return undefined
-  return (m.tenantId || m.tenant_id || m['tenant-id'])?.trim() || undefined
+  return (m.subscriberId || m.subscriber_id || m['subscriber-id'])?.trim() || undefined
 }
 
 function metaPlanId(m: Stripe.Metadata | null): string | undefined {
@@ -48,7 +48,7 @@ function reconcileFromSubscription(sub: Stripe.Subscription): Extract<BillingRec
     op: 'stripe_upsert_subscription',
     stripeSubscriptionId: sub.id,
     stripeCustomerId,
-    tenantId: metaTenantId(sub.metadata),
+    subscriberId: metaTenantId(sub.metadata),
     planId: metaPlanId(sub.metadata),
     status: mapStripeSubStatus(sub.status),
     currentPeriodEndIso: new Date(sub.current_period_end * 1000).toISOString(),
@@ -71,7 +71,7 @@ async function mapStripeEvent(stripe: Stripe, evt: Stripe.Event): Promise<Normal
           id: evt.id,
           provider: 'stripe',
           eventType: evt.type,
-          tenantId: session.client_reference_id?.trim() || metaTenantId(session.metadata) || 'unknown',
+          subscriberId: session.client_reference_id?.trim() || metaTenantId(session.metadata) || 'unknown',
           subscriptionId: null,
           amountCents: 0,
           currency: (session.currency ?? 'usd').toUpperCase(),
@@ -82,11 +82,11 @@ async function mapStripeEvent(stripe: Stripe, evt: Stripe.Event): Promise<Normal
       ]
     }
     const sub = await stripe.subscriptions.retrieve(subId, { expand: ['customer'] })
-    const tenantId =
+    const subscriberId =
       metaTenantId(sub.metadata) || session.client_reference_id?.trim() || metaTenantId(session.metadata) || 'unknown'
     const reconcile = reconcileFromSubscription(sub)
-    if (!reconcile.tenantId && tenantId !== 'unknown') {
-      reconcile.tenantId = tenantId
+    if (!reconcile.subscriberId && subscriberId !== 'unknown') {
+      reconcile.subscriberId = subscriberId
     }
     if (!reconcile.planId && session.metadata) {
       reconcile.planId = metaPlanId(session.metadata)
@@ -96,7 +96,7 @@ async function mapStripeEvent(stripe: Stripe, evt: Stripe.Event): Promise<Normal
         id: evt.id,
         provider: 'stripe',
         eventType: evt.type,
-        tenantId,
+        subscriberId,
         subscriptionId: null,
         amountCents: 0,
         currency: (session.currency ?? 'usd').toUpperCase(),
@@ -121,13 +121,13 @@ async function mapStripeEvent(stripe: Stripe, evt: Stripe.Event): Promise<Normal
   ) {
     const sub = evt.data.object as Stripe.Subscription
     const reconcile = reconcileFromSubscription(sub)
-    const tenantId = metaTenantId(sub.metadata) || 'unknown'
+    const subscriberId = metaTenantId(sub.metadata) || 'unknown'
     return [
       {
         id: evt.id,
         provider: 'stripe',
         eventType: evt.type,
-        tenantId,
+        subscriberId,
         subscriptionId: null,
         amountCents: 0,
         currency: 'USD',
@@ -145,22 +145,22 @@ async function mapStripeEvent(stripe: Stripe, evt: Stripe.Event): Promise<Normal
     ]
   }
 
-  /** invoice.paid — informational; resolve tenant via subscription metadata when possible */
+  /** invoice.paid — informational; resolve subscriber via subscription metadata when possible */
   if (evt.type === 'invoice.paid' || evt.type === 'invoice.payment_failed') {
     const inv = evt.data.object as Stripe.Invoice
-    let tenantId = 'unknown'
+    let subscriberId = 'unknown'
     const subRef = inv.subscription
     const sid = typeof subRef === 'string' ? subRef : subRef && typeof subRef === 'object' ? subRef.id : null
     if (sid) {
       const sub = await stripe.subscriptions.retrieve(sid)
-      tenantId = metaTenantId(sub.metadata) ?? 'unknown'
+      subscriberId = metaTenantId(sub.metadata) ?? 'unknown'
     }
     return [
       {
         id: evt.id,
         provider: 'stripe',
         eventType: evt.type,
-        tenantId,
+        subscriberId,
         subscriptionId: null,
         amountCents: inv.amount_paid ?? 0,
         currency: (inv.currency ?? 'usd').toUpperCase(),
@@ -176,7 +176,7 @@ async function mapStripeEvent(stripe: Stripe, evt: Stripe.Event): Promise<Normal
       id: evt.id,
       provider: 'stripe',
       eventType: evt.type,
-      tenantId: 'unknown',
+      subscriberId: 'unknown',
       subscriptionId: null,
       amountCents: 0,
       currency: 'USD',
@@ -193,7 +193,7 @@ export const stripeBillingProvider: BillingProvider = {
   async createCustomer(input) {
     const stripe = getStripe()
     const c = await stripe.customers.create({
-      metadata: { tenantId: input.tenantId },
+      metadata: { subscriberId: input.subscriberId },
       email: input.email,
       name: input.name,
     })
@@ -227,13 +227,13 @@ export const stripeBillingProvider: BillingProvider = {
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      client_reference_id: params.tenantId,
+      client_reference_id: params.subscriberId,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
       subscription_data: {
         metadata: {
-          tenantId: params.tenantId,
+          subscriberId: params.subscriberId,
           planId: params.planId,
           productId: plan.productId,
         },
@@ -253,12 +253,12 @@ export const stripeBillingProvider: BillingProvider = {
     await bootstrapDatabase(client)
     const db = drizzle(client)
 
-    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, params.tenantId)).limit(1)
-    if (!tenant) {
+    const [subscriber] = await db.select().from(subscribersTable).where(eq(subscribersTable.id, params.subscriberId)).limit(1)
+    if (!subscriber) {
       throw createError({ statusCode: 404, statusMessage: 'Tenant not found' })
     }
 
-    const subs = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.tenantId, params.tenantId))
+    const subs = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.subscriberId, params.subscriberId))
 
     let customerId: string | null = null
     for (const s of subs) {
@@ -276,9 +276,9 @@ export const stripeBillingProvider: BillingProvider = {
 
     if (!customerId) {
       const c = await stripe.customers.create({
-        metadata: { tenantId: params.tenantId },
-        email: tenant.email?.trim() || undefined,
-        name: tenant.name,
+        metadata: { subscriberId: params.subscriberId },
+        email: subscriber.email?.trim() || undefined,
+        name: subscriber.name,
       })
       customerId = c.id
     }

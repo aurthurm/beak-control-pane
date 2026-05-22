@@ -29,7 +29,7 @@ const metrics = computed(() => {
 <template>
   <PortalShell
     title="Usage"
-    subtitle="Usage signals are shown with their limits so customers can spot risk before it becomes a problem."
+    subtitle="Usage signals are shown with their limits so subscribers can spot risk before it becomes a problem."
     :summary="summary ?? null"
     :pending="pending"
     :error="error ? 'Unable to load portal data.' : null"
@@ -52,7 +52,7 @@ const metrics = computed(() => {
       <CardHeader>
         <CardTitle>Usage records</CardTitle>
         <CardDescription>
-          {{ rows.length }} usage rows connected to the active customer.
+          {{ rows.length }} usage rows connected to the active subscriber.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -78,7 +78,7 @@ const metrics = computed(() => {
                   </div>
                 </td>
                 <td class="px-4 py-4 align-top">
-                  <div>{{ row.tenantName }}</div>
+                  <div>{{ row.subscriberName }}</div>
                   <div class="text-muted-foreground">{{ row.productName }}</div>
                 </td>
                 <td class="px-4 py-4 align-top">

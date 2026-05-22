@@ -31,8 +31,8 @@ useSeoMeta({
 
 type SubscriptionRow = {
   id: string
-  tenantId: string
-  tenantName: string
+  subscriberId: string
+  subscriberName: string
   productId: string
   productName: string
   planId: string
@@ -123,7 +123,7 @@ const filtered = computed(() => {
     if (q) {
       const hay = [
         s.id,
-        s.tenantName,
+        s.subscriberName,
         s.planName,
         s.productName,
         s.provider,
@@ -174,7 +174,7 @@ async function createSubscription() {
     await $fetch('/api/subscriptions', {
       method: 'POST',
       body: {
-        tenantId: formTenant.value,
+        subscriberId: formTenant.value,
         planId: formPlan.value,
         licenseCount: formLicenseCount.value,
         activationsPerLicense: formActivationsPerLicense.value,
@@ -204,8 +204,8 @@ function badgeVariantForSubscription(s: SubscriptionRow) {
 }
 
 function subscriptionDetailPath(s: SubscriptionRow) {
-  if (!s.tenantId || !s.id) return '/subscriptions'
-  return `/customers/${s.tenantId}/subscription/${s.id}`
+  if (!s.subscriberId || !s.id) return '/subscriptions'
+  return `/subscribers/${s.subscriberId}/subscription/${s.id}`
 }
 
 function goToSubscription(s: SubscriptionRow) {
@@ -232,12 +232,12 @@ function goToSubscription(s: SubscriptionRow) {
           <DialogContent class="max-w-md">
             <DialogHeader>
               <DialogTitle>Create subscription</DialogTitle>
-              <DialogDescription>Attach a customer to a catalog plan. Provider references can be refined later.</DialogDescription>
+              <DialogDescription>Attach a subscriber to a catalog plan. Provider references can be refined later.</DialogDescription>
             </DialogHeader>
             <div class="grid gap-3 py-2">
               <div class="grid gap-1.5">
-                <Label for="sub-tenant">Customer</Label>
-                <NativeSelect id="sub-tenant" v-model="formTenant">
+                <Label for="sub-subscriber">Subscriber</Label>
+                <NativeSelect id="sub-subscriber" v-model="formTenant">
                   <NativeSelectOption v-for="t in references?.tenants ?? []" :key="t.id" :value="t.id">
                     {{ t.name }}
                   </NativeSelectOption>
@@ -349,7 +349,7 @@ function goToSubscription(s: SubscriptionRow) {
           <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
             <div class="relative w-full lg:max-w-xs">
               <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input v-model="search" class="pl-9" placeholder="Search ID, customer, plan, provider…" />
+              <Input v-model="search" class="pl-9" placeholder="Search ID, subscriber, plan, provider…" />
             </div>
             <div class="grid gap-1.5 sm:min-w-[140px]">
               <Label for="sub-f-product" class="text-xs text-muted-foreground">Product</Label>
@@ -395,7 +395,7 @@ function goToSubscription(s: SubscriptionRow) {
               <TableHeader>
                 <TableRow>
                   <TableHead class="whitespace-nowrap">Subscription ID</TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Subscriber</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Provider</TableHead>
@@ -422,7 +422,7 @@ function goToSubscription(s: SubscriptionRow) {
                   <TableCell class="font-mono text-xs text-primary underline-offset-4 hover:underline">
                     {{ s.id }}
                   </TableCell>
-                  <TableCell class="font-medium">{{ s.tenantName }}</TableCell>
+                  <TableCell class="font-medium">{{ s.subscriberName }}</TableCell>
                   <TableCell>{{ s.productName }}</TableCell>
                   <TableCell>{{ s.planName }}</TableCell>
                   <TableCell>

@@ -11,7 +11,7 @@ import { subscriptionsTable } from '../db/schema'
  */
 export async function tryStripeUsageRecord(
   db: LibSQLDatabase<Record<string, never>>,
-  input: { tenantId: string; quantity: number; timestamp?: number; idempotencyKey?: string },
+  input: { subscriberId: string; quantity: number; timestamp?: number; idempotencyKey?: string },
 ): Promise<{ ok: boolean; reason: string }> {
   if (process.env.BCP_STRIPE_USAGE_SYNC !== 'true') {
     return { ok: false, reason: 'disabled' }
@@ -24,7 +24,7 @@ export async function tryStripeUsageRecord(
   const subs = await db
     .select()
     .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.tenantId, input.tenantId))
+    .where(eq(subscriptionsTable.subscriberId, input.subscriberId))
 
   let itemId: string | null = null
   for (const s of subs) {

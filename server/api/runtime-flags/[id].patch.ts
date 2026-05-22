@@ -26,12 +26,12 @@ type Body = {
   rolloutPercent?: number
   globallyEnabled?: boolean
   rules?: Record<string, unknown>
-  targetTenantIds?: string[]
+  targetSubscriberIds?: string[]
   environmentValues?: Record<string, string | number | boolean>
   planIds?: string[]
   evaluationHistory?: Array<{
     at: string
-    tenantId?: string | null
+    subscriberId?: string | null
     environment?: string | null
     result: string
     reason: string
@@ -187,9 +187,9 @@ export default defineEventHandler(async (event) => {
     patch.rulesJson = JSON.stringify(body.rules)
   }
 
-  if (body.targetTenantIds !== undefined) {
-    const ids = Array.isArray(body.targetTenantIds) ? body.targetTenantIds.filter(Boolean) : []
-    patch.targetTenantIdsJson = JSON.stringify(ids)
+  if (body.targetSubscriberIds !== undefined) {
+    const ids = Array.isArray(body.targetSubscriberIds) ? body.targetSubscriberIds.filter(Boolean) : []
+    patch.targetSubscriberIdsJson = JSON.stringify(ids)
   }
 
   if (body.environmentValues !== undefined) {
@@ -229,7 +229,7 @@ export default defineEventHandler(async (event) => {
     }
     const normalized = body.evaluationHistory.map((e) => ({
       at: e.at,
-      tenantId: e.tenantId ?? null,
+      subscriberId: e.subscriberId ?? null,
       environment: e.environment ?? null,
       result: e.result,
       reason: e.reason,

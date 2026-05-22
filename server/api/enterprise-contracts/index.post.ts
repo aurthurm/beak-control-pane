@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
-import { enterpriseContractsTable, tenantsTable } from '../../db/schema'
+import { enterpriseContractsTable, subscribersTable } from '../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
 import { requireStaffApiWhenEnforced } from '../../utils/auth-guards'
 
 type Body = {
-  tenantId?: string
+  subscriberId?: string
   name?: string
   status?: string
   startsAt?: string
@@ -21,10 +21,10 @@ export default defineEventHandler(async (event) => {
   await requireStaffApiWhenEnforced(event)
 
   const body = await readBody<Body>(event)
-  const tenantId = body.tenantId?.trim()
+  const subscriberId = body.subscriberId?.trim()
   const name = body.name?.trim()
-  if (!tenantId || !name) {
-    throw createError({ statusCode: 400, statusMessage: 'tenantId and name are required' })
+  if (!subscriberId || !name) {
+    throw createError({ statusCode: 400, statusMessage: 'subscriberId and name are required' })
   }
 
   const startsAt = body.startsAt?.trim()
@@ -37,9 +37,9 @@ export default defineEventHandler(async (event) => {
   await bootstrapDatabase(client)
   const db = drizzle(client)
 
-  const [t] = await db.select({ id: tenantsTable.id }).from(tenantsTable).where(eq(tenantsTable.id, tenantId))
+  const [t] = await db.select({ id: subscribersTable.id }).from(subscribersTable).where(eq(subscribersTable.id, subscriberId))
   if (!t) {
-    throw createError({ statusCode: 404, statusMessage: 'Tenant not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Subscriber not found' })
   }
 
   const now = new Date().toISOString()
@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
 
   await db.insert(enterpriseContractsTable).values({
     id,
-    tenantId,
+    subscriberId,
     name,
     status,
     startsAt,

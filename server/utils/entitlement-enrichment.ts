@@ -169,8 +169,8 @@ export function addOnFeatureKeys(addOns: unknown[]): Set<string> {
 
 export function enrichEntitlementRow(input: {
   id: string
-  tenantId: string
-  tenantName: string
+  subscriberId: string
+  subscriberName: string
   productId: string
   productName: string
   computedAt: string
@@ -286,7 +286,7 @@ export function enrichEntitlementRow(input: {
     }
     subscriptionCompare.aligned = subscriptionCompare.notes.length === 0
   } else {
-    subscriptionCompare.notes.push('No subscription found for this tenant and product.')
+    subscriptionCompare.notes.push('No subscription found for this subscriber and product.')
     subscriptionCompare.aligned = false
   }
 
@@ -325,8 +325,8 @@ export function enrichEntitlementRow(input: {
 
   return {
     id: input.id,
-    tenantId: input.tenantId,
-    tenantName: input.tenantName,
+    subscriberId: input.subscriberId,
+    subscriberName: input.subscriberName,
     productId: input.productId,
     productName: input.productName,
     computedAt: input.computedAt,

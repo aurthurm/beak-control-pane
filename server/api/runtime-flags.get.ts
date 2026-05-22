@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/libsql'
 import { eq, inArray, isNull, or } from 'drizzle-orm'
-import { featuresTable, planFeaturesTable, plansTable, productsTable, runtimeFeatureFlagsTable, tenantsTable } from '../db/schema'
+import { featuresTable, planFeaturesTable, plansTable, productsTable, runtimeFeatureFlagsTable, subscribersTable } from '../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../db/bootstrap'
 import { toRuntimeFlagListItem } from '../utils/runtime-flags'
 import { getStaffOrganizationId } from '../utils/organizations'
@@ -25,9 +25,9 @@ export default defineEventHandler(async (event) => {
   const orgProductIds = orgProducts.map((p) => p.id)
 
   const tenants = await db
-    .select({ id: tenantsTable.id, name: tenantsTable.name })
-    .from(tenantsTable)
-    .where(eq(tenantsTable.organizationId, organizationId))
+    .select({ id: subscribersTable.id, name: subscribersTable.name })
+    .from(subscribersTable)
+    .where(eq(subscribersTable.organizationId, organizationId))
 
   const products = await db
     .select({ id: productsTable.id, name: productsTable.name })
@@ -105,7 +105,7 @@ export default defineEventHandler(async (event) => {
     return products.find((p) => p.id === id)?.name ?? null
   }
 
-  const tenantName = (id: string) => tenants.find((t) => t.id === id)?.name ?? null
+  const subscriberName = (id: string) => tenants.find((t) => t.id === id)?.name ?? null
 
   const featureMeta = (id: string | null) => {
     if (!id) return null
@@ -125,7 +125,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const list = flags.map((row) =>
-    toRuntimeFlagListItem(row, { productName, featureMeta, tenantName, planIdsForFeature, planIdsForProduct }),
+    toRuntimeFlagListItem(row, { productName, featureMeta, subscriberName, planIdsForFeature, planIdsForProduct }),
   )
 
   return {

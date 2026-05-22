@@ -2,9 +2,9 @@ import { createError } from 'h3'
 import { and, eq } from 'drizzle-orm'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { BillingEventRow } from '../../db/schema'
-import { billingEventsTable, plansTable, subscriptionsTable, tenantsTable } from '../../db/schema'
+import { billingEventsTable, plansTable, subscriptionsTable, subscribersTable } from '../../db/schema'
 import { insertAuditLog } from '../../utils/audit-log'
-import { recomputeEntitlementForTenantProduct } from '../../utils/entitlement-by-product'
+import { recomputeEntitlementForSubscriberProduct } from '../../utils/entitlement-by-product'
 import { reissueLicensesForTenantProduct } from '../licensing/reissue'
 import type { BillingReconcileOp, NormalizedBillingEvent } from './domain'
 import { createSubscriptionRecord } from './create-subscription-record'
@@ -35,7 +35,7 @@ function appendLog(
 async function applyReconcileOp(
   db: LibSQLDatabase<any>,
   op: BillingReconcileOp,
-): Promise<{ tenantId: string; productId: string } | null> {
+): Promise<{ subscriberId: string; productId: string } | null> {
   if (op.op === 'none') {
     return null
   }
@@ -64,19 +64,19 @@ async function applyReconcileOp(
       })
       .where(eq(subscriptionsTable.id, existing.id))
 
-    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, existing.tenantId)).limit(1)
+    const [t] = await db.select().from(subscribersTable).where(eq(subscribersTable.id, existing.subscriberId)).limit(1)
     if (t) {
       await db
-        .update(tenantsTable)
+        .update(subscribersTable)
         .set({
           billingProvider: 'stripe',
           billingMode: t.billingMode?.trim() ? t.billingMode : 'online',
         })
-        .where(eq(tenantsTable.id, t.id))
+        .where(eq(subscribersTable.id, t.id))
     }
 
     await insertAuditLog(db, {
-      tenantId: existing.tenantId,
+      subscriberId: existing.subscriberId,
       actor: 'billing.ingest',
       action: 'subscription.updated',
       resourceType: 'subscription',
@@ -85,17 +85,17 @@ async function applyReconcileOp(
     })
 
     const { productId } = await getProductIdForPlan(db, existing.planId)
-    return productId ? { tenantId: existing.tenantId, productId } : null
+    return productId ? { subscriberId: existing.subscriberId, productId } : null
   }
 
-  const tenantId = op.tenantId?.trim()
+  const subscriberId = op.subscriberId?.trim()
   const planId = op.planId?.trim()
-  if (!tenantId || !planId) {
+  if (!subscriberId || !planId) {
     return null
   }
 
   await createSubscriptionRecord(db, {
-    tenantId,
+    subscriberId,
     planId,
     provider: 'stripe',
     providerRef: stripeSubId,
@@ -106,19 +106,19 @@ async function applyReconcileOp(
     providerMetadataJson: JSON.stringify({ stripe_customer_id: op.stripeCustomerId }),
   })
 
-  const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
+  const [t] = await db.select().from(subscribersTable).where(eq(subscribersTable.id, subscriberId)).limit(1)
   if (t) {
     await db
-      .update(tenantsTable)
+      .update(subscribersTable)
       .set({
         billingProvider: 'stripe',
         billingMode: t.billingMode?.trim() ? t.billingMode : 'online',
       })
-      .where(eq(tenantsTable.id, tenantId))
+      .where(eq(subscribersTable.id, subscriberId))
   }
 
   const { productId } = await getProductIdForPlan(db, planId)
-  return productId ? { tenantId, productId } : null
+  return productId ? { subscriberId, productId } : null
 }
 
 async function getProductIdForPlan(db: LibSQLDatabase<any>, planId: string) {
@@ -147,11 +147,11 @@ export async function ingestNormalizedBillingEvent(
 
   const [tenantRow] = await db
     .select()
-    .from(tenantsTable)
-    .where(eq(tenantsTable.id, normalized.tenantId))
+    .from(subscribersTable)
+    .where(eq(subscribersTable.id, normalized.subscriberId))
     .limit(1)
   if (!tenantRow) {
-    return { ok: true, billingEventId, skipped: true, reason: 'unknown_or_missing_tenant' }
+    return { ok: true, billingEventId, skipped: true, reason: 'unknown_or_missing_subscriber' }
   }
 
   const [existing] = await db
@@ -168,7 +168,7 @@ export async function ingestNormalizedBillingEvent(
     await db.insert(billingEventsTable).values({
       id: billingEventId,
       provider: normalized.provider,
-      tenantId: normalized.tenantId,
+      subscriberId: normalized.subscriberId,
       subscriptionId: normalized.subscriptionId,
       eventType: normalized.eventType,
       amountCents: normalized.amountCents,
@@ -187,12 +187,12 @@ export async function ingestNormalizedBillingEvent(
 
   try {
     const impacted = await applyReconcileOp(db, normalized.reconcile)
-    const impactedJson: Array<{ tenantId: string; productId: string }> = []
+    const impactedJson: Array<{ subscriberId: string; productId: string }> = []
     if (impacted) {
       impactedJson.push(impacted)
-      const ent = await recomputeEntitlementForTenantProduct(db, impacted.tenantId, impacted.productId)
+      const ent = await recomputeEntitlementForSubscriberProduct(db, impacted.subscriberId, impacted.productId)
       if (ent) {
-        await reissueLicensesForTenantProduct(db, impacted.tenantId, impacted.productId, 'billing.ingest')
+        await reissueLicensesForTenantProduct(db, impacted.subscriberId, impacted.productId, 'billing.ingest')
       }
     }
 
@@ -212,7 +212,7 @@ export async function ingestNormalizedBillingEvent(
       .where(eq(billingEventsTable.id, billingEventId))
 
     await insertAuditLog(db, {
-      tenantId: normalized.tenantId,
+      subscriberId: normalized.subscriberId,
       actor: 'billing.ingest',
       action: 'billing_event.processed',
       resourceType: 'billing_event',

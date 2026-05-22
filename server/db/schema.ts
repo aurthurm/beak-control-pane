@@ -139,7 +139,7 @@ export const planAddonsTable = sqliteTable(
   }),
 )
 
-export const tenantsTable = sqliteTable(
+export const subscribersTable = sqliteTable(
   'tenants',
   {
   id: text('id').primaryKey(),
@@ -170,9 +170,9 @@ export const tenantsTable = sqliteTable(
 /** Named enterprise agreements (MSA, custom entitlements) — Phase 4. */
 export const enterpriseContractsTable = sqliteTable('enterprise_contracts', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id')
+  subscriberId: text('subscriber_id')
     .notNull()
-    .references(() => tenantsTable.id, { onDelete: 'cascade' }),
+    .references(() => subscribersTable.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   status: text('status').notNull().default('draft'),
   startsAt: text('starts_at').notNull(),
@@ -187,7 +187,7 @@ export const enterpriseContractsTable = sqliteTable('enterprise_contracts', {
 
 export const subscriptionsTable = sqliteTable('subscriptions', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull().references(() => tenantsTable.id, { onDelete: 'cascade' }),
+  subscriberId: text('subscriber_id').notNull().references(() => subscribersTable.id, { onDelete: 'cascade' }),
   planId: text('plan_id').notNull().references(() => plansTable.id, { onDelete: 'cascade' }),
   provider: text('provider').notNull(),
   providerRef: text('provider_ref').notNull(),
@@ -209,7 +209,7 @@ export const subscriptionsTable = sqliteTable('subscriptions', {
 
 export const entitlementsTable = sqliteTable('entitlements', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull().references(() => tenantsTable.id, { onDelete: 'cascade' }),
+  subscriberId: text('subscriber_id').notNull().references(() => subscribersTable.id, { onDelete: 'cascade' }),
   productId: text('product_id').notNull().references(() => productsTable.id, { onDelete: 'cascade' }),
   payloadJson: text('payload_json').notNull(),
   computedAt: text('computed_at').notNull(),
@@ -217,7 +217,7 @@ export const entitlementsTable = sqliteTable('entitlements', {
 
 export const licensesTable = sqliteTable('licenses', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull().references(() => tenantsTable.id, { onDelete: 'cascade' }),
+  subscriberId: text('subscriber_id').notNull().references(() => subscribersTable.id, { onDelete: 'cascade' }),
   productId: text('product_id').notNull().references(() => productsTable.id, { onDelete: 'cascade' }),
   subscriptionId: text('subscription_id').references(() => subscriptionsTable.id, { onDelete: 'set null' }),
   licenseKey: text('license_key').notNull().unique(),
@@ -250,7 +250,7 @@ export const activationsTable = sqliteTable('activations', {
 
 export const usageRecordsTable = sqliteTable('usage_records', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').notNull().references(() => tenantsTable.id, { onDelete: 'cascade' }),
+  subscriberId: text('subscriber_id').notNull().references(() => subscribersTable.id, { onDelete: 'cascade' }),
   productId: text('product_id').references(() => productsTable.id, { onDelete: 'set null' }),
   metric: text('metric').notNull(),
   value: integer('value').notNull(),
@@ -267,7 +267,7 @@ export const usageRecordsTable = sqliteTable('usage_records', {
 export const billingEventsTable = sqliteTable('billing_events', {
   id: text('id').primaryKey(),
   provider: text('provider').notNull(),
-  tenantId: text('tenant_id').notNull().references(() => tenantsTable.id, { onDelete: 'cascade' }),
+  subscriberId: text('subscriber_id').notNull().references(() => subscribersTable.id, { onDelete: 'cascade' }),
   subscriptionId: text('subscription_id').references(() => subscriptionsTable.id, { onDelete: 'set null' }),
   eventType: text('event_type').notNull(),
   amountCents: integer('amount_cents').notNull(),
@@ -285,7 +285,7 @@ export const billingEventsTable = sqliteTable('billing_events', {
 
 export const auditLogsTable = sqliteTable('audit_logs', {
   id: text('id').primaryKey(),
-  tenantId: text('tenant_id').references(() => tenantsTable.id, { onDelete: 'set null' }),
+  subscriberId: text('subscriber_id').references(() => subscribersTable.id, { onDelete: 'set null' }),
   actor: text('actor').notNull(),
   action: text('action').notNull(),
   resourceType: text('resource_type').notNull(),
@@ -314,7 +314,7 @@ export const runtimeFeatureFlagsTable = sqliteTable('runtime_feature_flags', {
   rolloutPercent: integer('rollout_percent').notNull().default(100),
   globallyEnabled: integer('globally_enabled', { mode: 'boolean' }).notNull().default(true),
   rulesJson: text('rules_json').notNull().default('{}'),
-  targetTenantIdsJson: text('target_tenant_ids_json').notNull().default('[]'),
+  targetSubscriberIdsJson: text('target_subscriber_ids_json').notNull().default('[]'),
   environmentValuesJson: text('environment_values_json').notNull().default('{}'),
   evaluationHistoryJson: text('evaluation_history_json').notNull().default('[]'),
   expiresAt: text('expires_at').notNull().default(''),
@@ -327,7 +327,7 @@ export const usersTable = sqliteTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  /** platform_admin | support | customer */
+  /** platform_admin | support | subscriber */
   platformRole: text('platform_role').notNull(),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull().default(''),
@@ -387,7 +387,7 @@ export type OrganizationRow = typeof organizationsTable.$inferSelect
 export type ProductRow = typeof productsTable.$inferSelect
 export type PlanRow = typeof plansTable.$inferSelect
 export type FeatureRow = typeof featuresTable.$inferSelect
-export type TenantRow = typeof tenantsTable.$inferSelect
+export type TenantRow = typeof subscribersTable.$inferSelect
 export type SubscriptionRow = typeof subscriptionsTable.$inferSelect
 export type LicenseRow = typeof licensesTable.$inferSelect
 export type ActivationRow = typeof activationsTable.$inferSelect

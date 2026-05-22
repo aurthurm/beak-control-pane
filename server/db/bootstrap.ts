@@ -11,10 +11,9 @@ import {
   migrateSubscriptionsTable,
 } from '../utils/subscriptions'
 import { migrateEnterpriseContractsTable } from '../utils/enterprise-migrate'
-import { migrateTenantsTable } from '../utils/tenant-migrate'
+import { migrateSubscribersTable } from '../utils/subscriber-migrate'
 import { migrateOrganizationsTable } from '../utils/organizations'
 import { migrateAuthTables } from '../utils/auth-migrate'
-import { seedPlatformAdmin } from '../utils/auth-seed'
 
 const sqlQuote = (value: string | number | boolean | null | undefined) => {
   if (value === null || value === undefined) {
@@ -89,7 +88,7 @@ const seedLicenseSignatureHeader = Buffer.from(
 
 function makeSeedLicenseSignature(input: {
   id: string
-  tenantId: string
+  subscriberId: string
   productId: string
   subscriptionId?: string
   licenseKey: string
@@ -103,7 +102,7 @@ function makeSeedLicenseSignature(input: {
         seed: true,
         licenseId: input.id,
         licenseKey: input.licenseKey,
-        tenantId: input.tenantId,
+        subscriberId: input.subscriberId,
         productId: input.productId,
         subscriptionId: input.subscriptionId ?? '',
         mode: input.mode,
@@ -112,7 +111,7 @@ function makeSeedLicenseSignature(input: {
         validTo: input.validTo,
       }),
     ).toString('base64url')
-  const signature = Buffer.from(`${input.id}:${input.licenseKey}:${input.tenantId}:${input.subscriptionId ?? ''}`).toString('base64url')
+  const signature = Buffer.from(`${input.id}:${input.licenseKey}:${input.subscriberId}:${input.subscriptionId ?? ''}`).toString('base64url')
   return `${seedLicenseSignatureHeader}.${payload}.${signature}`
 }
 
@@ -516,7 +515,7 @@ async function migratePlanMetadataLegacyCleanup(client: Client) {
 
 async function normalizeSeedLicenseSignatures(client: Client) {
   const rows = await client.execute({
-    sql: `SELECT id, tenant_id, product_id, license_key, mode, status, valid_from, valid_to
+    sql: `SELECT id, subscriber_id, product_id, license_key, mode, status, valid_from, valid_to
           FROM licenses
           WHERE signature NOT LIKE '%.%.%'`,
     args: [],
@@ -528,7 +527,7 @@ async function normalizeSeedLicenseSignatures(client: Client) {
     if (!id) continue
     const signature = makeSeedLicenseSignature({
       id,
-      tenantId: String(r.tenant_id ?? ''),
+      subscriberId: String(r.subscriber_id ?? ''),
       productId: String(r.product_id ?? ''),
       licenseKey: String(r.license_key ?? ''),
       mode: String(r.mode ?? ''),
@@ -601,7 +600,7 @@ const bootstrapStatements: string[] = [
   `PRAGMA foreign_keys = ON;`,
   `CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
-    slug TEXT NOT NULL UNIQUE,
+    slug TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     status TEXT NOT NULL,
@@ -695,7 +694,7 @@ const bootstrapStatements: string[] = [
   );`,
   `CREATE TABLE IF NOT EXISTS tenants (
     id TEXT PRIMARY KEY,
-    slug TEXT NOT NULL UNIQUE,
+    slug TEXT NOT NULL,
     name TEXT NOT NULL,
     industry TEXT NOT NULL,
     status TEXT NOT NULL,
@@ -713,7 +712,7 @@ const bootstrapStatements: string[] = [
   );`,
   `CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    subscriber_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
     provider TEXT NOT NULL,
     provider_ref TEXT NOT NULL,
@@ -734,14 +733,14 @@ const bootstrapStatements: string[] = [
   );`,
   `CREATE TABLE IF NOT EXISTS entitlements (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    subscriber_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     payload_json TEXT NOT NULL,
     computed_at TEXT NOT NULL
   );`,
   `CREATE TABLE IF NOT EXISTS licenses (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    subscriber_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     subscription_id TEXT REFERENCES subscriptions(id) ON DELETE SET NULL,
     license_key TEXT NOT NULL UNIQUE,
@@ -772,7 +771,7 @@ const bootstrapStatements: string[] = [
   );`,
   `CREATE TABLE IF NOT EXISTS usage_records (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    subscriber_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     product_id TEXT REFERENCES products(id) ON DELETE SET NULL,
     metric TEXT NOT NULL,
     value INTEGER NOT NULL,
@@ -788,7 +787,7 @@ const bootstrapStatements: string[] = [
   `CREATE TABLE IF NOT EXISTS billing_events (
     id TEXT PRIMARY KEY,
     provider TEXT NOT NULL,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    subscriber_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     subscription_id TEXT REFERENCES subscriptions(id) ON DELETE SET NULL,
     event_type TEXT NOT NULL,
     amount_cents INTEGER NOT NULL,
@@ -805,7 +804,7 @@ const bootstrapStatements: string[] = [
   );`,
   `CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY,
-    tenant_id TEXT REFERENCES tenants(id) ON DELETE SET NULL,
+    subscriber_id TEXT REFERENCES tenants(id) ON DELETE SET NULL,
     actor TEXT NOT NULL,
     action TEXT NOT NULL,
     resource_type TEXT NOT NULL,
@@ -832,7 +831,7 @@ const bootstrapStatements: string[] = [
     rollout_percent INTEGER NOT NULL DEFAULT 100,
     globally_enabled INTEGER NOT NULL DEFAULT 1,
     rules_json TEXT NOT NULL DEFAULT '{}',
-    target_tenant_ids_json TEXT NOT NULL DEFAULT '[]',
+    target_subscriber_ids_json TEXT NOT NULL DEFAULT '[]',
     environment_values_json TEXT NOT NULL DEFAULT '{}',
     evaluation_history_json TEXT NOT NULL DEFAULT '[]',
     expires_at TEXT NOT NULL DEFAULT '',
@@ -1165,7 +1164,7 @@ const bootstrapStatements: string[] = [
         id: 'feat_reports_adv',
         feature_key: 'reports_advanced',
         name: 'Advanced reports',
-        description: 'Cross-tenant and regulated reporting.',
+        description: 'Cross-subscriber and regulated reporting.',
         category: 'reports',
         product_id: 'prd_beak_lims',
         feature_type: 'module',
@@ -1701,7 +1700,7 @@ const bootstrapStatements: string[] = [
         billing_mode: 'license',
         billing_provider: 'manual',
         support_tier: 'internal',
-        internal_notes: 'Dogfood tenant for Bitlimbs.',
+        internal_notes: 'Dogfood subscriber for Bitlimbs.',
         contact_name: 'Beak Platform Team',
       },
       {
@@ -1781,7 +1780,7 @@ const bootstrapStatements: string[] = [
       'rollout_percent',
       'globally_enabled',
       'rules_json',
-      'target_tenant_ids_json',
+      'target_subscriber_ids_json',
       'environment_values_json',
       'evaluation_history_json',
       'expires_at',
@@ -1806,22 +1805,22 @@ const bootstrapStatements: string[] = [
         rollout_percent: 30,
         globally_enabled: 1,
         rules_json: JSON.stringify({
-          precedence: ['globally_disabled', 'tenant_allowlist', 'environment_map', 'percentage', 'default'],
+          precedence: ['globally_disabled', 'subscriber_allowlist', 'environment_map', 'percentage', 'default'],
           notes: 'Tenant allowlist wins. Production uses env map until percentage applies.',
         }),
-        target_tenant_ids_json: JSON.stringify(['tenant_central_lab', 'tenant_beta_workshop']),
+        target_subscriber_ids_json: JSON.stringify(['tenant_central_lab', 'tenant_beta_workshop']),
         environment_values_json: JSON.stringify({ development: true, staging: true, production: false }),
         evaluation_history_json: JSON.stringify([
           {
             at: '2026-04-19T08:12:00Z',
-            tenantId: 'tenant_central_lab',
+            subscriberId: 'tenant_central_lab',
             environment: 'production',
             result: 'true',
             reason: 'Tenant allowlist match',
           },
           {
             at: '2026-04-19T08:11:22Z',
-            tenantId: 'tenant_city_hospital',
+            subscriberId: 'tenant_city_hospital',
             environment: 'production',
             result: 'false',
             reason: 'Percentage bucket 0.84 > 0.30',
@@ -1849,14 +1848,14 @@ const bootstrapStatements: string[] = [
         globally_enabled: 1,
         rules_json: JSON.stringify({
           precedence: ['globally_disabled', 'default'],
-          notes: 'Flip globally off to deny writes everywhere regardless of tenant.',
+          notes: 'Flip globally off to deny writes everywhere regardless of subscriber.',
         }),
-        target_tenant_ids_json: '[]',
+        target_subscriber_ids_json: '[]',
         environment_values_json: JSON.stringify({ production: true, staging: true }),
         evaluation_history_json: JSON.stringify([
           {
             at: '2026-04-18T22:05:00Z',
-            tenantId: null,
+            subscriberId: null,
             environment: 'production',
             result: 'true',
             reason: 'Global ops flag on; default true',
@@ -1877,21 +1876,21 @@ const bootstrapStatements: string[] = [
         plan_assignments_json: JSON.stringify(['plan_lims_pro']),
         flag_type: 'experiment',
         status: 'active',
-        scope: 'tenant',
+        scope: 'subscriber',
         default_value: 'false',
         rollout_strategy: 'percentage',
         rollout_percent: 12,
         globally_enabled: 1,
         rules_json: JSON.stringify({
           precedence: ['globally_disabled', 'percentage', 'default'],
-          cohort: 'stable_hash_by_tenant_id',
+          cohort: 'stable_hash_by_subscriber_id',
         }),
-        target_tenant_ids_json: '[]',
+        target_subscriber_ids_json: '[]',
         environment_values_json: JSON.stringify({ staging: true, production: false }),
         evaluation_history_json: JSON.stringify([
           {
             at: '2026-04-19T06:40:00Z',
-            tenantId: 'tenant_north_pharmacy',
+            subscriberId: 'tenant_north_pharmacy',
             environment: 'staging',
             result: 'true',
             reason: 'Environment map: staging forced on',
@@ -1914,11 +1913,11 @@ const bootstrapStatements: string[] = [
         status: 'archived',
         scope: 'product',
         default_value: 'false',
-        rollout_strategy: 'tenant_targeted',
+        rollout_strategy: 'subscriber_targeted',
         rollout_percent: 0,
         globally_enabled: 0,
         rules_json: JSON.stringify({ notes: 'Archived — do not re-enable without product sign-off.' }),
-        target_tenant_ids_json: '[]',
+        target_subscriber_ids_json: '[]',
         environment_values_json: '{}',
         evaluation_history_json: '[]',
         expires_at: '2026-01-15T00:00:00Z',
@@ -1936,18 +1935,18 @@ const bootstrapStatements: string[] = [
         plan_assignments_json: JSON.stringify(['plan_bitlimbs_foundation']),
         flag_type: 'permission_override',
         status: 'active',
-        scope: 'tenant',
+        scope: 'subscriber',
         default_value: 'false',
-        rollout_strategy: 'tenant_targeted',
+        rollout_strategy: 'subscriber_targeted',
         rollout_percent: 100,
         globally_enabled: 1,
-        rules_json: JSON.stringify({ precedence: ['tenant_allowlist', 'default'] }),
-        target_tenant_ids_json: JSON.stringify(['tenant_city_hospital', 'tenant_central_lab']),
+        rules_json: JSON.stringify({ precedence: ['subscriber_allowlist', 'default'] }),
+        target_subscriber_ids_json: JSON.stringify(['tenant_city_hospital', 'tenant_central_lab']),
         environment_values_json: JSON.stringify({ production: true }),
         evaluation_history_json: JSON.stringify([
           {
             at: '2026-04-17T11:02:00Z',
-            tenantId: 'tenant_city_hospital',
+            subscriberId: 'tenant_city_hospital',
             environment: 'production',
             result: 'true',
             reason: 'Tenant targeted override',
@@ -1964,7 +1963,7 @@ const bootstrapStatements: string[] = [
     'subscriptions',
     [
       'id',
-      'tenant_id',
+      'subscriber_id',
       'plan_id',
       'provider',
       'provider_ref',
@@ -1984,7 +1983,7 @@ const bootstrapStatements: string[] = [
     [
       {
         id: 'sub_central_lab',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         plan_id: 'plan_lims_pro',
         provider: 'stripe',
         provider_ref: 'sub_stripe_001',
@@ -2006,7 +2005,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_city_hospital',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         plan_id: 'plan_pos_enterprise',
         provider: 'manual',
         provider_ref: 'contract_ch_009',
@@ -2025,7 +2024,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_north_pharmacy',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         plan_id: 'plan_pos_pro',
         provider: 'paynow',
         provider_ref: 'pn_44102',
@@ -2044,7 +2043,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_beta_workshop',
-        tenant_id: 'tenant_beta_workshop',
+        subscriber_id: 'tenant_beta_workshop',
         plan_id: 'plan_bitlimbs_foundation',
         provider: 'manual',
         provider_ref: 'beta_internal',
@@ -2063,7 +2062,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_city_hospital_lims',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         plan_id: 'plan_lims_starter',
         provider: 'stripe',
         provider_ref: 'sub_stripe_ch_lims',
@@ -2082,7 +2081,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_sunset_boutique',
-        tenant_id: 'tenant_sunset_boutique',
+        subscriber_id: 'tenant_sunset_boutique',
         plan_id: 'plan_pos_pro',
         provider: 'stripe',
         provider_ref: 'sub_sunset_old',
@@ -2101,7 +2100,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_paused_franchise',
-        tenant_id: 'tenant_paused_franchise',
+        subscriber_id: 'tenant_paused_franchise',
         plan_id: 'plan_pos_pro',
         provider: 'stripe',
         provider_ref: 'sub_pf_pastdue',
@@ -2120,7 +2119,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'sub_lapsed_clinic',
-        tenant_id: 'tenant_lapsed_clinic',
+        subscriber_id: 'tenant_lapsed_clinic',
         plan_id: 'plan_lims_starter',
         provider: 'paynow',
         provider_ref: 'pn_lapsed_01',
@@ -2139,10 +2138,10 @@ const bootstrapStatements: string[] = [
       },
     ],
   ),
-  insertRows('entitlements', ['id', 'tenant_id', 'product_id', 'payload_json', 'computed_at'], [
+  insertRows('entitlements', ['id', 'subscriber_id', 'product_id', 'payload_json', 'computed_at'], [
     {
       id: 'ent_central_lab_lims',
-      tenant_id: 'tenant_central_lab',
+      subscriber_id: 'tenant_central_lab',
       product_id: 'prd_beak_lims',
       payload_json: JSON.stringify({
         modules: { reports: true, reports_advanced: true, inventory: true, customers: true, hl7: false },
@@ -2152,7 +2151,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'ent_city_hospital_pos',
-      tenant_id: 'tenant_city_hospital',
+      subscriber_id: 'tenant_city_hospital',
       product_id: 'prd_beak_pos',
       payload_json: JSON.stringify({
         modules: { reports: true, inventory: true, customers: true, hl7: false },
@@ -2162,7 +2161,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'ent_city_hospital_lims',
-      tenant_id: 'tenant_city_hospital',
+      subscriber_id: 'tenant_city_hospital',
       product_id: 'prd_beak_lims',
       payload_json: JSON.stringify({
         modules: { reports: true, inventory: true, customers: true, hl7: false },
@@ -2172,7 +2171,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'ent_north_pharmacy_pos',
-      tenant_id: 'tenant_north_pharmacy',
+      subscriber_id: 'tenant_north_pharmacy',
       product_id: 'prd_beak_pos',
       payload_json: JSON.stringify({
         modules: { inventory: true, customers: true, reports_advanced: false },
@@ -2182,7 +2181,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'ent_beta_workshop_core',
-      tenant_id: 'tenant_beta_workshop',
+      subscriber_id: 'tenant_beta_workshop',
       product_id: 'prd_bitlimbs',
       payload_json: JSON.stringify({
         modules: { hl7: true, beta_rollout: true },
@@ -2191,10 +2190,10 @@ const bootstrapStatements: string[] = [
       computed_at: '2026-04-19T08:00:00Z',
     },
   ]),
-  insertRows('licenses', ['id', 'tenant_id', 'product_id', 'subscription_id', 'license_key', 'mode', 'status', 'valid_from', 'valid_to', 'grace_until', 'signature', 'payload_json', 'offline_allowed', 'max_activations'], [
+  insertRows('licenses', ['id', 'subscriber_id', 'product_id', 'subscription_id', 'license_key', 'mode', 'status', 'valid_from', 'valid_to', 'grace_until', 'signature', 'payload_json', 'offline_allowed', 'max_activations'], [
     {
       id: 'lic_central_lab_001',
-      tenant_id: 'tenant_central_lab',
+      subscriber_id: 'tenant_central_lab',
       product_id: 'prd_beak_lims',
       subscription_id: 'sub_central_lab',
       license_key: 'BCP-LIMS-PRO-CLG-001',
@@ -2205,7 +2204,7 @@ const bootstrapStatements: string[] = [
       grace_until: '2027-04-15T23:59:59Z',
       signature: makeSeedLicenseSignature({
         id: 'lic_central_lab_001',
-        tenantId: 'tenant_central_lab',
+        subscriberId: 'tenant_central_lab',
         productId: 'prd_beak_lims',
         subscriptionId: 'sub_central_lab',
         licenseKey: 'BCP-LIMS-PRO-CLG-001',
@@ -2216,7 +2215,7 @@ const bootstrapStatements: string[] = [
       }),
       payload_json: JSON.stringify({
         schemaVersion: '2026.04',
-        tenantId: 'tenant_central_lab',
+        subscriberId: 'tenant_central_lab',
         productId: 'prd_beak_lims',
         subscriptionId: 'sub_central_lab',
         subscriptionLicenseCount: 1,
@@ -2238,7 +2237,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'lic_city_hospital_001',
-      tenant_id: 'tenant_city_hospital',
+      subscriber_id: 'tenant_city_hospital',
       product_id: 'prd_beak_pos',
       subscription_id: 'sub_city_hospital',
       license_key: 'BCP-POS-ENT-CHN-001',
@@ -2249,7 +2248,7 @@ const bootstrapStatements: string[] = [
       grace_until: '2027-04-15T23:59:59Z',
       signature: makeSeedLicenseSignature({
         id: 'lic_city_hospital_001',
-        tenantId: 'tenant_city_hospital',
+        subscriberId: 'tenant_city_hospital',
         productId: 'prd_beak_pos',
         subscriptionId: 'sub_city_hospital',
         licenseKey: 'BCP-POS-ENT-CHN-001',
@@ -2260,7 +2259,7 @@ const bootstrapStatements: string[] = [
       }),
       payload_json: JSON.stringify({
         schemaVersion: '2026.04',
-        tenantId: 'tenant_city_hospital',
+        subscriberId: 'tenant_city_hospital',
         productId: 'prd_beak_pos',
         subscriptionId: 'sub_city_hospital',
         subscriptionLicenseCount: 1,
@@ -2282,7 +2281,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'lic_north_pharmacy_001',
-      tenant_id: 'tenant_north_pharmacy',
+      subscriber_id: 'tenant_north_pharmacy',
       product_id: 'prd_beak_pos',
       subscription_id: 'sub_north_pharmacy',
       license_key: 'BCP-POS-PRO-NPH-001',
@@ -2293,7 +2292,7 @@ const bootstrapStatements: string[] = [
       grace_until: '2026-07-25T23:59:59Z',
       signature: makeSeedLicenseSignature({
         id: 'lic_north_pharmacy_001',
-        tenantId: 'tenant_north_pharmacy',
+        subscriberId: 'tenant_north_pharmacy',
         productId: 'prd_beak_pos',
         subscriptionId: 'sub_north_pharmacy',
         licenseKey: 'BCP-POS-PRO-NPH-001',
@@ -2304,7 +2303,7 @@ const bootstrapStatements: string[] = [
       }),
       payload_json: JSON.stringify({
         schemaVersion: '2026.04',
-        tenantId: 'tenant_north_pharmacy',
+        subscriberId: 'tenant_north_pharmacy',
         productId: 'prd_beak_pos',
         subscriptionId: 'sub_north_pharmacy',
         subscriptionLicenseCount: 1,
@@ -2326,7 +2325,7 @@ const bootstrapStatements: string[] = [
     },
     {
       id: 'lic_beta_workshop_001',
-      tenant_id: 'tenant_beta_workshop',
+      subscriber_id: 'tenant_beta_workshop',
       product_id: 'prd_bitlimbs',
       subscription_id: 'sub_beta_workshop',
       license_key: 'BCP-BITLIMBS-FND-BW-001',
@@ -2337,7 +2336,7 @@ const bootstrapStatements: string[] = [
       grace_until: '2027-04-15T23:59:59Z',
       signature: makeSeedLicenseSignature({
         id: 'lic_beta_workshop_001',
-        tenantId: 'tenant_beta_workshop',
+        subscriberId: 'tenant_beta_workshop',
         productId: 'prd_bitlimbs',
         subscriptionId: 'sub_beta_workshop',
         licenseKey: 'BCP-BITLIMBS-FND-BW-001',
@@ -2348,7 +2347,7 @@ const bootstrapStatements: string[] = [
       }),
       payload_json: JSON.stringify({
         schemaVersion: '2026.04',
-        tenantId: 'tenant_beta_workshop',
+        subscriberId: 'tenant_beta_workshop',
         productId: 'prd_bitlimbs',
         subscriptionId: 'sub_beta_workshop',
         subscriptionLicenseCount: 1,
@@ -2522,7 +2521,7 @@ const bootstrapStatements: string[] = [
     'usage_records',
     [
       'id',
-      'tenant_id',
+      'subscriber_id',
       'product_id',
       'metric',
       'value',
@@ -2538,7 +2537,7 @@ const bootstrapStatements: string[] = [
     [
       {
         id: 'usage_001',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         product_id: 'prd_beak_lims',
         metric: 'users',
         value: 38,
@@ -2553,7 +2552,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_002',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         product_id: 'prd_beak_lims',
         metric: 'api_calls_per_month',
         value: 71250,
@@ -2568,7 +2567,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_003',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         product_id: 'prd_beak_lims',
         metric: 'storage_gb',
         value: 420,
@@ -2583,7 +2582,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_004',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         product_id: 'prd_beak_lims',
         metric: 'lab_tests_per_month',
         value: 118_200,
@@ -2598,7 +2597,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_005',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_pos',
         metric: 'users',
         value: 211,
@@ -2613,7 +2612,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_006',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_pos',
         metric: 'branches',
         value: 6,
@@ -2628,7 +2627,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_007',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_pos',
         metric: 'sites',
         value: 14,
@@ -2643,7 +2642,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_008',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_pos',
         metric: 'api_calls_per_month',
         value: 402_000,
@@ -2658,7 +2657,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_009',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_pos',
         metric: 'pos_orders_per_month',
         value: 890_400,
@@ -2673,7 +2672,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_010',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_lims',
         metric: 'storage_gb',
         value: 5200,
@@ -2688,7 +2687,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_011',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         product_id: 'prd_beak_pos',
         metric: 'users',
         value: 22,
@@ -2703,7 +2702,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_012',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         product_id: 'prd_beak_pos',
         metric: 'branches',
         value: 3,
@@ -2718,7 +2717,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_013',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         product_id: 'prd_beak_pos',
         metric: 'api_calls_per_month',
         value: 18_200,
@@ -2733,7 +2732,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_014',
-        tenant_id: 'tenant_beta_workshop',
+        subscriber_id: 'tenant_beta_workshop',
         product_id: 'prd_bitlimbs',
         metric: 'api_calls_per_month',
         value: 84200,
@@ -2748,7 +2747,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_hist_001',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         product_id: 'prd_beak_lims',
         metric: 'users',
         value: 35,
@@ -2763,7 +2762,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_hist_002',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         product_id: 'prd_beak_lims',
         metric: 'api_calls_per_month',
         value: 68_100,
@@ -2778,7 +2777,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_hist_003',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_pos',
         metric: 'pos_orders_per_month',
         value: 812_000,
@@ -2793,7 +2792,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'usage_hist_004',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         product_id: 'prd_beak_lims',
         metric: 'storage_gb',
         value: 4100,
@@ -2813,7 +2812,7 @@ const bootstrapStatements: string[] = [
     [
       'id',
       'provider',
-      'tenant_id',
+      'subscriber_id',
       'subscription_id',
       'event_type',
       'amount_cents',
@@ -2832,7 +2831,7 @@ const bootstrapStatements: string[] = [
       {
         id: 'bevt_001',
         provider: 'stripe',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         subscription_id: 'sub_central_lab',
         event_type: 'invoice_paid',
         amount_cents: 85000,
@@ -2866,7 +2865,7 @@ const bootstrapStatements: string[] = [
       {
         id: 'bevt_002',
         provider: 'manual',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         subscription_id: 'sub_city_hospital',
         event_type: 'contract_renewed',
         amount_cents: 720000,
@@ -2893,7 +2892,7 @@ const bootstrapStatements: string[] = [
       {
         id: 'bevt_003',
         provider: 'paynow',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         subscription_id: 'sub_north_pharmacy',
         event_type: 'trial_started',
         amount_cents: 0,
@@ -2917,7 +2916,7 @@ const bootstrapStatements: string[] = [
       {
         id: 'bevt_004',
         provider: 'manual',
-        tenant_id: 'tenant_beta_workshop',
+        subscriber_id: 'tenant_beta_workshop',
         subscription_id: 'sub_beta_workshop',
         event_type: 'license_issued',
         amount_cents: 120000,
@@ -2941,7 +2940,7 @@ const bootstrapStatements: string[] = [
       {
         id: 'bevt_005',
         provider: 'stripe',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         subscription_id: 'sub_city_hospital_lims',
         event_type: 'invoice_payment_failed',
         amount_cents: 35000,
@@ -2962,7 +2961,7 @@ const bootstrapStatements: string[] = [
           currency: 'USD',
         }),
         processing_logs_json: JSON.stringify([
-          { at: '2026-04-12T09:00:02Z', level: 'info', message: 'Mapped tenant via customer metadata' },
+          { at: '2026-04-12T09:00:02Z', level: 'info', message: 'Mapped subscriber via customer metadata' },
           {
             at: '2026-04-12T09:00:03Z',
             level: 'error',
@@ -2981,7 +2980,7 @@ const bootstrapStatements: string[] = [
       {
         id: 'bevt_006',
         provider: 'stripe',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         subscription_id: 'sub_north_pharmacy',
         event_type: 'customer.subscription.updated',
         amount_cents: 0,
@@ -3008,7 +3007,7 @@ const bootstrapStatements: string[] = [
     'audit_logs',
     [
       'id',
-      'tenant_id',
+      'subscriber_id',
       'actor',
       'action',
       'resource_type',
@@ -3022,7 +3021,7 @@ const bootstrapStatements: string[] = [
     [
       {
         id: 'aud_001',
-        tenant_id: null,
+        subscriber_id: null,
         actor: 'admin@beak.local',
         action: 'product.created',
         resource_type: 'product',
@@ -3046,7 +3045,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_002',
-        tenant_id: null,
+        subscriber_id: null,
         actor: 'ops-api@beak.local',
         action: 'plan.updated',
         resource_type: 'plan',
@@ -3070,7 +3069,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_003',
-        tenant_id: null,
+        subscriber_id: null,
         actor: 'catalog-worker',
         action: 'plan.feature_added',
         resource_type: 'plan',
@@ -3091,7 +3090,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_feat_001',
-        tenant_id: null,
+        subscriber_id: null,
         actor: 'admin@beak.local',
         action: 'catalog.feature_updated',
         resource_type: 'feature',
@@ -3108,7 +3107,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_feat_002',
-        tenant_id: null,
+        subscriber_id: null,
         actor: 'catalog-worker',
         action: 'catalog.feature_created',
         resource_type: 'feature',
@@ -3124,7 +3123,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_004',
-        tenant_id: 'tenant_sunset_boutique',
+        subscriber_id: 'tenant_sunset_boutique',
         actor: 'stripe',
         action: 'subscription.canceled',
         resource_type: 'subscription',
@@ -3146,7 +3145,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_005',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         actor: 'license-issuer',
         action: 'license.generated',
         resource_type: 'license',
@@ -3164,7 +3163,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_ent_hist_001',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         actor: 'entitlement-engine',
         action: 'entitlement.recomputed',
         resource_type: 'entitlement',
@@ -3177,7 +3176,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_ent_hist_002',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         actor: 'entitlement-engine',
         action: 'entitlement.recomputed',
         resource_type: 'entitlement',
@@ -3190,7 +3189,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_ent_hist_003',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         actor: 'entitlement-engine',
         action: 'entitlement.recomputed',
         resource_type: 'entitlement',
@@ -3203,7 +3202,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_006',
-        tenant_id: 'tenant_beta_workshop',
+        subscriber_id: 'tenant_beta_workshop',
         actor: 'device-admin@beta.workshop',
         action: 'activation.released',
         resource_type: 'activation',
@@ -3227,7 +3226,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_007',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         actor: 'admin@beak.local',
         action: 'entitlement.override_applied',
         resource_type: 'entitlement',
@@ -3242,7 +3241,7 @@ const bootstrapStatements: string[] = [
           changedFields: [{ path: 'modules.hl7', before: false, after: true }],
           request: {
             method: 'PUT',
-            path: '/api/tenants/tenant_central_lab/entitlements/override',
+            path: '/api/subscribers/tenant_central_lab/entitlements/override',
             requestId: 'req_ent_9931',
             ip: '10.0.4.12',
           },
@@ -3251,7 +3250,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_008',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         actor: 'integrations@beak.local',
         action: 'billing.sync',
         resource_type: 'billing_event',
@@ -3270,7 +3269,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_lic_dl_001',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         actor: 'admin@beak.local',
         action: 'license.payload_downloaded',
         resource_type: 'license',
@@ -3287,7 +3286,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_lic_regen_001',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         actor: 'license-issuer',
         action: 'license.regenerated',
         resource_type: 'license',
@@ -3304,7 +3303,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_lic_dl_002',
-        tenant_id: 'tenant_north_pharmacy',
+        subscriber_id: 'tenant_north_pharmacy',
         actor: 'integrations@beak.local',
         action: 'license.payload_downloaded',
         resource_type: 'license',
@@ -3317,7 +3316,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_sub_001',
-        tenant_id: 'tenant_central_lab',
+        subscriber_id: 'tenant_central_lab',
         actor: 'billing-gateway',
         action: 'subscription.status_changed',
         resource_type: 'subscription',
@@ -3336,7 +3335,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_sub_002',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         actor: 'admin@beak.local',
         action: 'subscription.plan_assigned',
         resource_type: 'subscription',
@@ -3353,7 +3352,7 @@ const bootstrapStatements: string[] = [
       },
       {
         id: 'aud_sub_003',
-        tenant_id: 'tenant_city_hospital',
+        subscriber_id: 'tenant_city_hospital',
         actor: 'stripe',
         action: 'subscription.past_due',
         resource_type: 'subscription',
@@ -3400,28 +3399,24 @@ export function getDatabaseClient() {
 export async function bootstrapDatabase(client: Client) {
   if (!bootstrapPromise) {
     bootstrapPromise = (async () => {
-      let seenSeed = false
       for (const statement of bootstrapStatements) {
-        if (!seenSeed && statement.trimStart().startsWith('INSERT')) {
-          await migrateOrganizationsTable(client)
-          await migrateAuthTables(client)
-          await seedPlatformAdmin(client)
-          await migrateProductsTable(client)
-          await migrateDatabaseSchema(client)
-          await migrateActivationsTable(client)
-          await migrateTenantsTable(client)
-          await migrateEnterpriseContractsTable(client)
-          await migrateSubscriptionsTable(client)
-          await migrateBillingEventsSubscriptionId(client)
-          await migrateBillingEventsProcessingFields(client)
-          await migrateLicensesTable(client)
-          seenSeed = true
+        if (statement.trimStart().startsWith('INSERT')) {
+          continue
         }
         await client.execute(statement)
       }
-      if (seenSeed) {
-        await normalizeSeedLicenseSignatures(client)
-      }
+
+      await migrateOrganizationsTable(client)
+      await migrateAuthTables(client)
+      await migrateProductsTable(client)
+      await migrateDatabaseSchema(client)
+      await migrateActivationsTable(client)
+      await migrateSubscribersTable(client)
+      await migrateEnterpriseContractsTable(client)
+      await migrateSubscriptionsTable(client)
+      await migrateBillingEventsSubscriptionId(client)
+      await migrateBillingEventsProcessingFields(client)
+      await migrateLicensesTable(client)
     })().catch((error) => {
       bootstrapPromise = null
       throw error

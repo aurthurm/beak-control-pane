@@ -26,14 +26,14 @@ import { Activity, KeyRound, LayoutGrid, PlusCircle, RefreshCw } from 'lucide-vu
 definePageMeta({ layout: 'console' })
 
 const route = useRoute()
-const tenantId = computed(() => String(route.params.id ?? ''))
+const subscriberId = computed(() => String(route.params.id ?? ''))
 const subscriptionId = computed(() => String(route.params.subscriptionId ?? ''))
 
 type Detail = {
   subscription: {
     id: string
-    tenantId: string
-    tenantName: string
+    subscriberId: string
+    subscriberName: string
     planId: string
     planName: string
     productId: string
@@ -58,7 +58,7 @@ type Detail = {
     basePlanAmountCents: number
     isPaused: boolean
   }
-  tenant: { id: string; name: string; slug: string; status: string } | null
+  subscriber: { id: string; name: string; slug: string; status: string } | null
   product: { id: string; name: string; slug: string } | null
   plan: {
     id: string
@@ -85,7 +85,7 @@ type Detail = {
   statusHistory: Array<{ id: string; actor: string; action: string; detailsJson: string; createdAt: string }>
   licenses: Array<{
     id: string
-    tenantId: string
+    subscriberId: string
     productId: string
     subscriptionId: string | null
     licenseKey: string
@@ -102,15 +102,15 @@ type Detail = {
 }
 
 const { data, pending, refresh } = await useFetch<Detail>(() => `/api/subscriptions/${subscriptionId.value}`, {
-  key: () => `bcp-subscription-${tenantId.value}-${subscriptionId.value}`,
-  watch: [subscriptionId, tenantId],
+  key: () => `bcp-subscription-${subscriberId.value}-${subscriptionId.value}`,
+  watch: [subscriptionId, subscriberId],
 })
 
 watch(
   () => data.value?.subscription,
   (sub) => {
-    if (!sub || sub.tenantId === tenantId.value) return
-    void navigateTo(`/customers/${sub.tenantId}/subscription/${sub.id}`, { replace: true })
+    if (!sub || sub.subscriberId === subscriberId.value) return
+    void navigateTo(`/subscribers/${sub.subscriberId}/subscription/${sub.id}`, { replace: true })
   },
   { flush: 'post' },
 )
@@ -231,10 +231,10 @@ const activityCount = computed(() => {
     <ConsolePageHeader
       :breadcrumbs="[
         { label: site.brand.name, to: '/' },
-        { label: 'Customers', to: '/customers' },
+        { label: 'Subscribers', to: '/subscribers' },
         {
-          label: data?.tenant?.name ?? data?.subscription.tenantName ?? tenantId,
-          to: `/customers/${tenantId}`,
+          label: data?.subscriber?.name ?? data?.subscription.subscriberName ?? subscriberId,
+          to: `/subscribers/${subscriberId}`,
         },
         { label: data?.subscription.id ?? '…' },
       ]"
@@ -290,14 +290,14 @@ const activityCount = computed(() => {
           <div class="grid gap-4 lg:grid-cols-3">
             <Card class="border-border/70">
               <CardHeader>
-                <CardTitle class="text-base">Customer</CardTitle>
-                <CardDescription>Customer on this subscription.</CardDescription>
+                <CardTitle class="text-base">Subscriber</CardTitle>
+                <CardDescription>Subscriber on this subscription.</CardDescription>
               </CardHeader>
-              <CardContent v-if="data.tenant" class="space-y-1 text-sm">
-                <NuxtLink :to="`/customers/${tenantId}`" class="font-medium text-primary underline-offset-4 hover:underline">
-                  {{ data.tenant.name }}
+              <CardContent v-if="data.subscriber" class="space-y-1 text-sm">
+                <NuxtLink :to="`/subscribers/${subscriberId}`" class="font-medium text-primary underline-offset-4 hover:underline">
+                  {{ data.subscriber.name }}
                 </NuxtLink>
-                <p class="text-muted-foreground">{{ data.tenant.slug }} · {{ data.tenant.status }}</p>
+                <p class="text-muted-foreground">{{ data.subscriber.slug }} · {{ data.subscriber.status }}</p>
               </CardContent>
             </Card>
             <Card class="border-border/70">
@@ -467,7 +467,7 @@ const activityCount = computed(() => {
           <Card class="border-border/70">
             <CardHeader>
               <CardTitle class="text-base">Computed entitlements</CardTitle>
-              <CardDescription>Snapshots for this customer and product from the entitlement engine.</CardDescription>
+              <CardDescription>Snapshots for this subscriber and product from the entitlement engine.</CardDescription>
             </CardHeader>
             <CardContent class="space-y-3">
               <div v-for="e in data.entitlements" :key="e.id" class="rounded-lg border border-border/60 p-3 text-sm">
@@ -495,7 +495,7 @@ const activityCount = computed(() => {
               <NuxtLink
                 v-for="lic in data.licenses"
                 :key="lic.id"
-                :to="`/customers/${tenantId}/license/${lic.id}`"
+                :to="`/subscribers/${subscriberId}/license/${lic.id}`"
                 class="block rounded-lg border border-border/50 bg-background/40 p-4 text-sm transition-colors hover:border-primary/40 hover:bg-background/60"
               >
                 <div class="font-mono text-xs break-all">{{ lic.licenseKey }}</div>

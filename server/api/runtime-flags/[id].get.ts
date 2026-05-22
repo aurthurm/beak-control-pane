@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/libsql'
 import { eq, inArray, isNull, or } from 'drizzle-orm'
-import { featuresTable, planFeaturesTable, plansTable, productsTable, runtimeFeatureFlagsTable, tenantsTable } from '../../db/schema'
+import { featuresTable, planFeaturesTable, plansTable, productsTable, runtimeFeatureFlagsTable, subscribersTable } from '../../db/schema'
 import { bootstrapDatabase, getDatabaseClient } from '../../db/bootstrap'
 import { toRuntimeFlagDetail } from '../../utils/runtime-flags'
 import { getStaffOrganizationId } from '../../utils/organizations'
@@ -40,9 +40,9 @@ export default defineEventHandler(async (event) => {
       .from(productsTable)
       .where(eq(productsTable.organizationId, organizationId)),
     db
-      .select({ id: tenantsTable.id, name: tenantsTable.name })
-      .from(tenantsTable)
-      .where(eq(tenantsTable.organizationId, organizationId)),
+      .select({ id: subscribersTable.id, name: subscribersTable.name })
+      .from(subscribersTable)
+      .where(eq(subscribersTable.organizationId, organizationId)),
     orgProductIds.length
       ? db
           .select({ id: featuresTable.id, name: featuresTable.name, featureKey: featuresTable.featureKey })
@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
     return products.find((p) => p.id === pid)?.name ?? null
   }
 
-  const tenantName = (tid: string) => tenants.find((t) => t.id === tid)?.name ?? null
+  const subscriberName = (tid: string) => tenants.find((t) => t.id === tid)?.name ?? null
 
   const featureMeta = (fid: string | null) => {
     if (!fid) return null
@@ -106,6 +106,6 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    flag: toRuntimeFlagDetail(row, { productName, featureMeta, tenantName, planIdsForFeature, planIdsForProduct }),
+    flag: toRuntimeFlagDetail(row, { productName, featureMeta, subscriberName, planIdsForFeature, planIdsForProduct }),
   }
 })

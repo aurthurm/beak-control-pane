@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   const subs = await db
     .select()
     .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.tenantId, entitlement.tenantId))
+    .where(eq(subscriptionsTable.subscriberId, entitlement.subscriberId))
 
   let subscriptionRow: (typeof subs)[0] | null = null
   let planRow: typeof plansTable.$inferSelect | null = null
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
   if (!subscriptionRow || !planRow) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'No subscription for this tenant and product; cannot recompute from catalog',
+      statusMessage: 'No subscription for this subscriber and product; cannot recompute from catalog',
     })
   }
 
@@ -89,17 +89,17 @@ export default defineEventHandler(async (event) => {
     })
     .where(eq(entitlementsTable.id, id))
 
-  await reissueLicensesForTenantProduct(db, entitlement.tenantId, entitlement.productId, 'entitlement.recompute')
+  await reissueLicensesForTenantProduct(db, entitlement.subscriberId, entitlement.productId, 'entitlement.recompute')
 
   const auditId = `aud_${randomBytes(6).toString('hex')}`
   await db.insert(auditLogsTable).values({
     id: auditId,
-    tenantId: entitlement.tenantId,
+    subscriberId: entitlement.subscriberId,
     actor: 'console',
     action: 'entitlement.recomputed',
     resourceType: 'entitlement',
     resourceId: entitlement.id,
-    resourceName: `${entitlement.tenantId} · ${entitlement.productId}`,
+    resourceName: `${entitlement.subscriberId} · ${entitlement.productId}`,
     source: 'api',
     result: 'success',
     detailsJson: JSON.stringify({

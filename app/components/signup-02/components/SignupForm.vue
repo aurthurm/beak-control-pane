@@ -76,7 +76,7 @@ async function onSubmit(e: Event) {
         body: {
           email: email.value.trim().toLowerCase(),
           password: password.value,
-          organizationName: organizationName.value.trim() || 'Customer',
+          organizationName: organizationName.value.trim() || 'Subscriber',
         },
       })
     }
@@ -97,10 +97,10 @@ async function onSubmit(e: Event) {
     <FieldGroup>
       <div class="flex flex-col items-center gap-1 text-center">
         <h1 class="text-2xl font-bold">
-          {{ token ? 'Accept invitation' : 'Create your customer' }}
+          {{ token ? 'Accept invitation' : 'Create your subscriber' }}
         </h1>
         <p class="text-muted-foreground text-sm text-balance">
-          {{ token ? 'Set a password to join your team.' : 'You will be the customer owner.' }}
+          {{ token ? 'Set a password to join your team.' : 'You will be the subscriber owner.' }}
         </p>
       </div>
       <p v-if="token && inviteMeta && !inviteMeta.valid" class="text-center text-sm text-destructive">
@@ -111,12 +111,12 @@ async function onSubmit(e: Event) {
       </p>
       <Field v-if="!token">
         <FieldLabel for="org">
-          Customer name
+          Subscriber name
         </FieldLabel>
         <Input id="org" v-model="organizationName" type="text" required autocomplete="organization" />
       </Field>
       <Field v-if="token && inviteMeta?.organizationName">
-        <FieldDescription>Customer: {{ inviteMeta.organizationName }}</FieldDescription>
+        <FieldDescription>Subscriber: {{ inviteMeta.organizationName }}</FieldDescription>
       </Field>
       <Field>
         <FieldLabel for="email">
@@ -147,7 +147,7 @@ async function onSubmit(e: Event) {
       </Field>
       <Field>
         <Button type="submit" :disabled="pending || (!!token && inviteMeta && !inviteMeta.valid)">
-          {{ pending ? 'Saving…' : token ? 'Join customer' : 'Create account' }}
+          {{ pending ? 'Saving…' : token ? 'Join subscriber' : 'Create account' }}
         </Button>
       </Field>
       <Field>
