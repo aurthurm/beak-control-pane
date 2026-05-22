@@ -2,6 +2,8 @@
 
 Nuxt 4 control plane for Beak product billing, licensing, entitlements, and customer portal access.
 
+<img width="1864" height="950" alt="image" src="https://github.com/user-attachments/assets/60195d42-dc2e-4578-8a26-15a93d1c2e24" />
+
 ## Stack
 
 - Nuxt 4
